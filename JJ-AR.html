@@ -26,7 +26,7 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      background: rgba(0, 0, 0, 0.9);
+      background: rgba(0, 0, 0, 0.95);
       z-index: 10;
       padding: 20px;
       text-align: center;
@@ -52,11 +52,14 @@
       border-radius: 6px;
       cursor: pointer;
     }
+    #start-ar-btn:hover {
+      background: #45a049;
+    }
     #back-btn {
       position: absolute;
       top: 15px;
       left: 15px;
-      background: rgba(255,255,255,0.2);
+      background: rgba(255, 255, 255, 0.2);
       border: none;
       color: white;
       width: 40px;
@@ -65,6 +68,9 @@
       font-size: 1.4rem;
       cursor: pointer;
       z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     #ar-container {
       position: absolute;
@@ -91,12 +97,14 @@
   </div>
 
   <div id="ar-container"></div>
-  <video id="video-element" autoplay playsinline></video>
+  <video id="video-element" autoplay playsinline muted></video>
 
-  <!-- Подключаем THREE.js -->
+  <!-- THREE.js -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.141.0/build/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.141.0/examples/js/loaders/GLTFLoader.js"></script>
-  <script src="https://raw.githack.com/AR-js-org/AR.js/master/three.js/build/ar-nft.js"></script>
+
+  <!-- AR.js для marker-based (HIRO) -->
+  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.3.3/three.js/build/ar.js"></script>
 
   <script>
     document.getElementById('start-ar-btn').addEventListener('click', async () => {
@@ -105,15 +113,17 @@
       const video = document.getElementById('video-element');
 
       try {
-        // 🔑 Запрашиваем доступ к камере ИМЕННО здес — внутри обработчика клика
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        // Запрашиваем камеру напрямую — только так работает в 2025 году
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' }
+        });
         video.srcObject = stream;
 
-        // Скрываем инструкцию и показываем AR-контейнер
+        // Скрываем инструкцию
         instructionScreen.style.display = 'none';
         arContainer.style.display = 'block';
 
-        // Инициализация THREE.js
+        // === THREE.js + AR.js ===
         const scene = new THREE.Scene();
         const camera = new THREE.Camera();
         scene.add(camera);
@@ -123,18 +133,16 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         arContainer.appendChild(renderer.domElement);
 
-        // AR.js: источник — наш видео-элемент
+        // Источник видео для AR.js
         const arToolkitSource = new THREEx.ArToolkitSource({
           sourceType: 'video',
           sourceVideoElement: video,
         });
 
-        // Инициализация AR Toolkit Source
         arToolkitSource.init(() => {
           onResize();
         });
 
-        // Обработка изменения размера
         function onResize() {
           arToolkitSource.onResizeElement();
           arToolkitSource.copyElementSizeTo(renderer.domElement);
@@ -146,7 +154,7 @@
 
         // Контекст AR
         const arToolkitContext = new THREEx.ArToolkitContext({
-          cameraParametersUrl: 'https://raw.githack.com/AR-js-org/AR.js/master/data/data/camera_para.dat',
+          cameraParametersUrl: 'https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.3.3/data/data/camera_para.dat',
           detectionMode: 'mono',
         });
 
@@ -154,26 +162,30 @@
           camera.projectionMatrix.copy(arToolkitContext.getProjectionMatrix());
         });
 
-        // Создаем маркер HIRO
+        // Группа для маркера
         const markerRoot = new THREE.Group();
         scene.add(markerRoot);
+
+        // Подключаем HIRO-паттерн
         new THREEx.ArMarkerControls(arToolkitContext, markerRoot, {
           type: 'pattern',
-          patternUrl: 'https://raw.githack.com/AR-js-org/AR.js/master/data/data/hiro.patt',
+          patternUrl: 'https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.3.3/data/data/hiro.patt',
         });
 
-        // Загружаем модель
+        // Загружаем 3D-модель
         const loader = new THREE.GLTFLoader();
         loader.load(
           'https://q-ni92.github.io/my-3d-models/JJ.glb',
           (gltf) => {
             const model = gltf.scene;
             model.scale.set(0.5, 0.5, 0.5);
+            model.position.set(0, 0, 0);
             markerRoot.add(model);
           },
           undefined,
           (error) => {
-            console.error('Ошибка загрузки модели JJ.glb:', error);
+            console.error('Ошибка загрузки модели:', error);
+            alert('Не удалось загрузить 3D-модель. Проверьте подключение.');
           }
         );
 
@@ -188,8 +200,8 @@
         animate();
 
       } catch (err) {
-        alert('Не удалось получить доступ к камере: ' + (err.message || err));
-        console.error('Ошибка камеры:', err);
+        console.error('Ошибка доступа к камере:', err);
+        alert('Не удалось получить доступ к камере:\n' + (err.message || err));
       }
     });
   </script>
