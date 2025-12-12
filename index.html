@@ -3,43 +3,36 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>3D Модели — AR Примерка</title>
+  <title>3D Модели</title>
   <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
   <style>
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
 
     body {
-      background: #f5f5f5;
-      color: #333;
-    }
-
-    /* Главный экран — сетка */
-    #home-screen {
-      display: block;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #121212;
+      color: white;
+      min-height: 100vh;
       padding: 20px;
-      max-width: 1200px;
-      margin: 0 auto;
     }
 
-    .grid {
+    #home {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 20px;
+      gap: 16px;
     }
 
     .model-card {
-      aspect-ratio: 1 / 1;
-      border-radius: 16px;
+      aspect-ratio: 1;
+      border-radius: 12px;
       overflow: hidden;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-      cursor: pointer;
       position: relative;
-      background: white;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
     }
 
     .model-card img {
@@ -48,171 +41,131 @@
       object-fit: cover;
     }
 
-    .model-card h3 {
+    .model-name {
       position: absolute;
       bottom: 0;
       left: 0;
       right: 0;
       background: rgba(0,0,0,0.7);
-      color: white;
-      padding: 12px;
+      padding: 8px;
       text-align: center;
-      font-size: 16px;
+      font-size: 14px;
     }
 
-    /* Экран модели */
-    #model-screen {
+    .model-card.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    #viewer {
       display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: white;
-      z-index: 1000;
-    }
-
-    #back-button {
-      position: absolute;
-      top: 16px;
-      left: 16px;
-      z-index: 2000;
-      background: white;
-      border: 2px solid #4285f4;
-      color: #4285f4;
-      width: 44px;
-      height: 44px;
-      border-radius: 50%;
-      font-size: 20px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      flex-direction: column;
+      height: 100vh;
+      background: black;
     }
 
     model-viewer {
       width: 100%;
       height: 100%;
+      display: block;
+    }
+
+    .back-button {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      z-index: 100;
+      background: rgba(0,0,0,0.6);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    .ar-button {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      z-index: 100;
+      background: white;
+      color: black;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 24px;
+      font-weight: bold;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
 
-  <!-- Главный экран -->
-  <div id="home-screen">
-    <div class="grid">
-      <!-- Кнопка 1 -->
-      <div class="model-card" data-model="JJ">
-        <img src="assets/images/JJ.jpg" alt="JJ">
-        <h3>JJ</h3>
-      </div>
-      <!-- Кнопка 2 -->
-      <div class="model-card" data-model="Shoker">
-        <img src="assets/images/Shoker.jpg" alt="Shoker">
-        <h3>Shoker</h3>
-      </div>
-      <!-- Остальные — заглушки -->
-      <div class="model-card dev">
-        <img src="assets/images/placeholder.jpg" alt="Скоро">
-        <h3>Модель 3</h3>
-      </div>
-      <div class="model-card dev">
-        <img src="assets/images/placeholder.jpg" alt="Скоро">
-        <h3>Модель 4</h3>
-      </div>
-      <div class="model-card dev">
-        <img src="assets/images/placeholder.jpg" alt="Скоро">
-        <h3>Модель 5</h3>
-      </div>
-      <div class="model-card dev">
-        <img src="assets/images/placeholder.jpg" alt="Скоро">
-        <h3>Модель 6</h3>
-      </div>
-      <div class="model-card dev">
-        <img src="assets/images/placeholder.jpg" alt="Скоро">
-        <h3>Модель 7</h3>
-      </div>
-      <div class="model-card dev">
-        <img src="assets/images/placeholder.jpg" alt="Скоро">
-        <h3>Модель 8</h3>
-      </div>
-    </div>
-  </div>
+<!-- Главный экран -->
+<div id="home">
+  <div class="model-card" data-model="JJ"><img src="assets/images/JJ.jpg" alt="JJ"><div class="model-name">JJ</div></div>
+  <div class="model-card" data-model="Shoker"><img src="assets/images/Shoker.jpg" alt="Shoker"><div class="model-name">Shoker</div></div>
+  <div class="model-card disabled"><img src="assets/images/placeholder.jpg" alt="Placeholder"><div class="model-name">Модель 3</div></div>
+  <div class="model-card disabled"><img src="assets/images/placeholder.jpg" alt="Placeholder"><div class="model-name">Модель 4</div></div>
+  <div class="model-card disabled"><img src="assets/images/placeholder.jpg" alt="Placeholder"><div class="model-name">Модель 5</div></div>
+  <div class="model-card disabled"><img src="assets/images/placeholder.jpg" alt="Placeholder"><div class="model-name">Модель 6</div></div>
+  <div class="model-card disabled"><img src="assets/images/placeholder.jpg" alt="Placeholder"><div class="model-name">Модель 7</div></div>
+  <div class="model-card disabled"><img src="assets/images/placeholder.jpg" alt="Placeholder"><div class="model-name">Модель 8</div></div>
+</div>
 
-  <!-- Экран 3D -->
-  <div id="model-screen">
-    <button id="back-button">←</button>
-    <model-viewer
-      id="viewer"
-      ar
-      ar-modes="webxr scene-viewer quick-look"
-      camera-controls
-      shadow-intensity="1"
-      autoplay
-      touch-action="pan-y"
-    >
-      <button slot="ar-button" style="position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 100;">
-        👓 Просмотр в AR
-      </button>
-    </model-viewer>
-  </div>
+<!-- Экран просмотра -->
+<div id="viewer">
+  <button class="back-button" id="back-btn">← Назад</button>
+  <model-viewer id="model-viewer" ar ar-modes="webxr scene-viewer quick-look" camera-controls>
+    <!-- AR fallback message handled via JS -->
+  </model-viewer>
+  <button class="ar-button" id="ar-btn">Просмотр в AR</button>
+</div>
 
-  <script>
-    // Модели
-    const models = {
-      JJ: {
-        glb: 'https://q-ni92.github.io/my-3d-models/JJ.glb',
-        usdz: 'https://q-ni92.github.io/my-3d-models/JJ.usdz'
-      },
-      Shoker: {
-        glb: 'https://q-ni92.github.io/my-3d-models/Shoker.glb',
-        usdz: 'https://q-ni92.github.io/my-3d-models/Shoker.usdz'
-      }
-    };
+<script>
+  const homeScreen = document.getElementById('home');
+  const viewerScreen = document.getElementById('viewer');
+  const modelViewer = document.getElementById('model-viewer');
+  const backBtn = document.getElementById('back-btn');
+  const arBtn = document.getElementById('ar-btn');
 
-    const homeScreen = document.getElementById('home-screen');
-    const modelScreen = document.getElementById('model-screen');
-    const viewer = document.getElementById('viewer');
-    const backButton = document.getElementById('back-button');
+  // Открытие модели
+  document.querySelectorAll('.model-card:not(.disabled)').forEach(card => {
+    card.addEventListener('click', () => {
+      const modelName = card.dataset.model;
+      const src = `./${modelName}.glb`;
+      modelViewer.src = src;
 
-    // Обработка кликов по карточкам
-    document.querySelectorAll('.model-card').forEach(card => {
-      card.addEventListener('click', () => {
-        if (card.classList.contains('dev')) {
-          alert('В разработке');
-          return;
-        }
+      // Меняем расширение для iOS (не обязательно, <model-viewer> сам обрабатывает)
+      // Но файлы .glb работают и на iOS через Quick Look
 
-        const modelName = card.getAttribute('data-model');
-        const model = models[modelName];
-
-        if (!model) return;
-
-        // Настраиваем viewer
-        viewer.setAttribute('src', model.glb);
-        viewer.setAttribute('ios-src', model.usdz);
-
-        // Показываем экран модели
-        homeScreen.style.display = 'none';
-        modelScreen.style.display = 'block';
-
-        // Ждём загрузки и проверяем AR
-        viewer.addEventListener('load', () => {
-          if (!viewer.arSupported) {
-            setTimeout(() => {
-              alert('Ваш телефон не поддерживается. Поищите поновее.');
-            }, 1000);
-          }
-        }, { once: true });
-      });
+      homeScreen.style.display = 'none';
+      viewerScreen.style.display = 'flex';
     });
+  });
 
-    // Возврат на главную
-    backButton.addEventListener('click', () => {
-      modelScreen.style.display = 'none';
-      homeScreen.style.display = 'block';
+  // Нажатие на "В разработке"
+  document.querySelectorAll('.model-card.disabled').forEach(card => {
+    card.addEventListener('click', () => {
+      alert('В разработке');
     });
-  </script>
+  });
+
+  // Назад
+  backBtn.addEventListener('click', () => {
+    viewerScreen.style.display = 'none';
+    homeScreen.style.display = 'grid';
+  });
+
+  // AR-кнопка
+  arBtn.addEventListener('click', () => {
+    if (!modelViewer.canActivateAR) {
+      alert('Ваш телефон не поддерживается. Поищите поновее');
+      return;
+    }
+    modelViewer.activateAR();
+  });
+</script>
+
 </body>
 </html>
