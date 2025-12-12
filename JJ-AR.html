@@ -1,19 +1,22 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>JJ — AR через маркер</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>JJ — AR просмотр</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
     body {
-      font-family: Arial, sans-serif;
+      font-family: sans-serif;
       background: #000;
       color: white;
       overflow: hidden;
-      touch-action: none;
     }
-    #ui {
+    #instruction-screen {
       position: absolute;
       top: 0;
       left: 0;
@@ -21,33 +24,47 @@
       height: 100%;
       display: flex;
       flex-direction: column;
-      justify-content: center;
       align-items: center;
-      z-index: 100;
-      background: rgba(0,0,0,0.85);
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.9);
+      z-index: 10;
+      padding: 20px;
+      text-align: center;
     }
-    #start-btn {
-      padding: 14px 28px;
-      font-size: 18px;
-      background: #1976d2;
+    #instruction-screen h2 {
+      margin-bottom: 20px;
+      font-size: 1.4rem;
+    }
+    #hiro-marker {
+      width: 80%;
+      max-width: 250px;
+      margin: 15px auto;
+      border: 2px solid white;
+      border-radius: 4px;
+    }
+    #start-ar-btn {
+      margin-top: 20px;
+      padding: 12px 24px;
+      font-size: 1.1rem;
+      background: #4CAF50;
       color: white;
       border: none;
-      border-radius: 30px;
+      border-radius: 6px;
       cursor: pointer;
-      margin-top: 20px;
     }
-    #marker-img {
-      width: 80%;
-      max-width: 300px;
-      margin: 0 auto 20px;
-      border: 2px solid white;
-      border-radius: 8px;
-    }
-    #loading {
-      display: none;
-      color: #bbb;
-      margin-top: 16px;
-      font-size: 14px;
+    #back-btn {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: white;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      font-size: 1.4rem;
+      cursor: pointer;
+      z-index: 20;
     }
     #ar-container {
       position: absolute;
@@ -56,145 +73,111 @@
       width: 100%;
       height: 100%;
       display: none;
-    }
-    .back-btn {
-      position: absolute;
-      top: 20px;
-      left: 20px;
-      background: rgba(255,255,255,0.8);
-      border: none;
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      font-size: 20px;
-      cursor: pointer;
-      z-index: 200;
+      z-index: 1;
     }
   </style>
 </head>
 <body>
-  <div id="ui">
-    <div>Наведите камеру на маркер:</div>
-    <img id="marker-img" src="https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/images/HIRO.jpg" alt="HIRO маркер">
-    <button id="start-btn">Разрешить камеру</button>
-    <div id="loading">Загрузка модели…</div>
+  <button id="back-btn" onclick="window.location.href='indexQR.html'">←</button>
+
+  <div id="instruction-screen">
+    <h2>Наведите камеру на маркер HIRO</h2>
+    <p>Распечатайте или откройте маркер на другом устройстве:</p>
+    <img id="hiro-marker" src="https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/images/HIRO.jpg" alt="HIRO Marker">
+    <button id="start-ar-btn">Разрешить камеру</button>
   </div>
 
   <div id="ar-container"></div>
-  <button class="back-btn" onclick="window.location.href='indexQR.html'">←</button>
 
-  <!-- THREE.js r141 — стабильная версия -->
+  <!-- Подключаем THREE.js -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.141.0/build/three.min.js"></script>
+  <!-- Подключаем GLTFLoader -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.141.0/examples/js/loaders/GLTFLoader.js"></script>
-  <!-- AR.js — ТОЛЬКО через raw.githack -->
+  <!-- Подключаем AR.js (NFT/marker-based) -->
   <script src="https://raw.githack.com/AR-js-org/AR.js/master/three.js/build/ar-nft.js"></script>
 
   <script>
-    // Проверка после загрузки всех скриптов
-    window.addEventListener('load', () => {
-      if (typeof THREE === 'undefined' || typeof THREEx === 'undefined' || typeof THREE.GLTFLoader !== 'function') {
-        document.getElementById('loading').style.display = 'block';
-        document.getElementById('loading').textContent = '❌ Ошибка: библиотеки не загружены';
-        document.getElementById('start-btn').disabled = true;
-        console.error('THREE:', typeof THREE);
-        console.error('THREEx:', typeof THREEx);
-        console.error('GLTFLoader:', typeof THREE?.GLTFLoader);
-        return;
+    document.getElementById('start-ar-btn').addEventListener('click', () => {
+      // Скрываем инструкцию
+      document.getElementById('instruction-screen').style.display = 'none';
+      document.getElementById('ar-container').style.display = 'block';
+
+      // Инициализация сцены
+      const scene = new THREE.Scene();
+      const camera = new THREE.Camera();
+      scene.add(camera);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.getElementById('ar-container').appendChild(renderer.domElement);
+
+      // Настройка AR.js
+      const arToolkitSource = new THREEx.ArToolkitSource({
+        sourceType: 'webcam',
+      });
+
+      arToolkitSource.init(() => {
+        setTimeout(() => {
+          onResize();
+        }, 2000);
+      });
+
+      // Обработка изменения размера
+      window.addEventListener('resize', onResize);
+      function onResize() {
+        if (!arToolkitSource.ready) return;
+        arToolkitSource.onResizeElement();
+        arToolkitSource.copyElementSizeTo(renderer.domElement);
+        if (arToolkitContext.arController !== null) {
+          arToolkitSource.copyElementSizeTo(arToolkitContext.arController.canvas);
+        }
       }
-    });
 
-    const MODEL_URL = 'https://q-ni92.github.io/my-3d-models/JJ.glb';
+      // Инициализация контекста AR
+      const arToolkitContext = new THREEx.ArToolkitContext({
+        cameraParametersUrl: 'https://raw.githack.com/AR-js-org/AR.js/master/data/data/camera_para.dat',
+        detectionMode: 'mono',
+      });
 
-    document.getElementById('start-btn').addEventListener('click', () => {
-      const ui = document.getElementById('ui');
-      const loading = document.getElementById('loading');
-      const arContainer = document.getElementById('ar-container');
+      arToolkitContext.init(() => {
+        camera.projectionMatrix.copy(arToolkitContext.getProjectionMatrix());
+      });
 
-      loading.style.display = 'block';
-      document.getElementById('start-btn').disabled = true;
+      // Создание маркерного контроллера (HIRO)
+      const markerRoot = new THREE.Group();
+      scene.add(markerRoot);
+      const artoolkitMarker = new THREEx.ArMarkerControls(arToolkitContext, markerRoot, {
+        type: 'pattern',
+        patternUrl: 'https://raw.githack.com/AR-js-org/AR.js/master/data/data/hiro.patt',
+      });
 
-      try {
-        const scene = new THREE.Scene();
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        arContainer.appendChild(renderer.domElement);
+      // Загрузка модели JJ.glb
+      const loader = new THREE.GLTFLoader();
+      loader.load(
+        'https://q-ni92.github.io/my-3d-models/JJ.glb',
+        (gltf) => {
+          const model = gltf.scene;
+          model.scale.set(0.5, 0.5, 0.5); // Масштабируем, если нужно
+          model.position.set(0, 0, 0);
+          markerRoot.add(model);
+        },
+        undefined,
+        (error) => {
+          console.error('Ошибка загрузки модели:', error);
+        }
+      );
 
-        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-        scene.add(new THREE.AmbientLight(0xffffff, 1.5));
-
-        const loader = new THREE.GLTFLoader();
-        loader.load(
-          MODEL_URL,
-          (gltf) => {
-            const model = gltf.scene;
-            model.scale.set(0.2, 0.2, 0.2);
-            model.rotation.x = -Math.PI / 2;
-            scene.add(model);
-
-            const arToolkitSource = new THREEx.ArToolkitSource({
-              sourceType: 'webcam',
-            });
-
-            arToolkitSource.init(() => {
-              setTimeout(() => {
-                onResize();
-                // Инициализация AR после ресайза
-                const arToolkitContext = new THREEx.ArToolkitContext({
-                  cameraParametersUrl: 'https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/data/camera_para.dat',
-                  detectionMode: 'mono_and_matrix'
-                });
-
-                arToolkitContext.init(() => {
-                  camera.projectionMatrix.copy(arToolkitContext.getProjectionMatrix());
-                });
-
-                const markerRoot = new THREE.Group();
-                scene.add(markerRoot);
-
-                new THREEx.ArMarkerControls(arToolkitContext, markerRoot, {
-                  type: 'pattern',
-                  patternUrl: 'https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/data/hiro.patt'
-                });
-
-                // Анимация
-                const animate = () => {
-                  requestAnimationFrame(animate);
-                  if (arToolkitSource.ready && arToolkitContext.arController) {
-                    arToolkitContext.update(arToolkitSource.domElement);
-                  }
-                  renderer.render(scene, camera);
-                };
-                animate();
-              }, 200);
-            });
-
-            function onResize() {
-              arToolkitSource.onResizeElement();
-              arToolkitSource.copySizeTo(renderer.domElement);
-              if (arToolkitContext?.arController) {
-                arToolkitSource.copySizeTo(arToolkitContext.arController.canvas);
-              }
-            }
-
-            window.addEventListener('resize', onResize);
-
-            ui.style.display = 'none';
-            arContainer.style.display = 'block';
-            loading.style.display = 'none';
-          },
-          undefined,
-          (error) => {
-            console.error('Ошибка загрузки GLB:', error);
-            loading.textContent = '❌ Модель не загружена';
-            document.getElementById('start-btn').disabled = false;
-          }
-        );
-      } catch (err) {
-        console.error('Ошибка:', err);
-        loading.textContent = '❌ Ошибка: ' + err.message;
-        document.getElementById('start-btn').disabled = false;
-      }
+      // Анимация и рендеринг
+      const clock = new THREE.Clock();
+      const animate = () => {
+        requestAnimationFrame(animate);
+        if (arToolkitSource.ready) {
+          arToolkitContext.update(arToolkitSource.domElement);
+          renderer.render(scene, camera);
+        }
+      };
+      animate();
     });
   </script>
 </body>
