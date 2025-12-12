@@ -3,169 +3,300 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>3D Модели</title>
-  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+  <title>Мои 3D-модели</title>
+  <!-- Стили для главной страницы и страницы просмотра -->
   <style>
+    /* Общие стили */
     * {
+      box-sizing: border-box;
       margin: 0;
       padding: 0;
-      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #121212;
-      color: white;
-      min-height: 100vh;
+      background: #f5f5f5;
       padding: 20px;
     }
 
+    /* Стили главного экрана (мозаика) */
     #home {
+      display: block;
+    }
+
+    .grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: 16px;
     }
 
-    .model-card {
-      aspect-ratio: 1;
+    .model-btn {
+      aspect-ratio: 1 / 1;
+      border: none;
       border-radius: 12px;
       overflow: hidden;
-      position: relative;
+      background: #fff;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
       cursor: pointer;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      position: relative;
     }
 
-    .model-card img {
+    .model-btn img {
       width: 100%;
       height: 100%;
       object-fit: cover;
     }
 
-    .model-name {
+    .model-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .model-btn .label {
       position: absolute;
       bottom: 0;
       left: 0;
       right: 0;
       background: rgba(0,0,0,0.7);
+      color: white;
       padding: 8px;
       text-align: center;
-      font-size: 14px;
+      font-size: 16px;
     }
 
-    .model-card.disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
+    /* Стили страницы просмотра 3D-модели */
     #viewer {
       display: none;
       flex-direction: column;
       height: 100vh;
-      background: black;
     }
 
-    model-viewer {
+    #model-container {
+      flex: 1;
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #model-container model-viewer {
       width: 100%;
       height: 100%;
-      display: block;
     }
 
-    .back-button {
+    #back-btn {
       position: absolute;
       top: 16px;
       left: 16px;
-      z-index: 100;
-      background: rgba(0,0,0,0.6);
-      color: white;
+      background: rgba(255,255,255,0.8);
       border: none;
-      padding: 8px 16px;
-      border-radius: 20px;
-      font-size: 16px;
+      border-radius: 50%;
+      width: 44px;
+      height: 44px;
+      font-size: 20px;
       cursor: pointer;
+      z-index: 10;
     }
 
-    .ar-button {
+    #ar-btn {
       position: absolute;
       bottom: 16px;
       right: 16px;
-      z-index: 100;
-      background: white;
-      color: black;
+      background: #007AFF;
+      color: white;
       border: none;
-      padding: 10px 20px;
-      border-radius: 24px;
-      font-weight: bold;
+      border-radius: 50px;
+      padding: 12px 24px;
+      font-size: 16px;
+      cursor: pointer;
+      z-index: 10;
+    }
+
+    /* Стили модального сообщения */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s;
+    }
+
+    .modal.show {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 24px;
+      border-radius: 16px;
+      text-align: center;
+      max-width: 300px;
+      width: 90%;
+    }
+
+    .modal button {
+      margin-top: 16px;
+      padding: 8px 16px;
+      background: #007AFF;
+      color: white;
+      border: none;
+      border-radius: 8px;
       cursor: pointer;
     }
   </style>
+
+  <!-- Подключение model-viewer (Google Web Components для 3D и AR) -->
+  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
 </head>
 <body>
 
-<!-- Главный экран -->
-<div id="home">
-  <div class="model-card" data-model="JJ"><img src="assets/images/JJ.jpg" alt="JJ"><div class="model-name">JJ</div></div>
-  <div class="model-card" data-model="Shoker"><img src="assets/images/Shoker.jpg" alt="Shoker"><div class="model-name">Shoker</div></div>
-  <div class="model-card disabled"><img src="assets/images/placeholder.jpg" alt="Placeholder"><div class="model-name">Модель 3</div></div>
-  <div class="model-card disabled"><img src="assets/images/placeholder.jpg" alt="Placeholder"><div class="model-name">Модель 4</div></div>
-  <div class="model-card disabled"><img src="assets/images/placeholder.jpg" alt="Placeholder"><div class="model-name">Модель 5</div></div>
-  <div class="model-card disabled"><img src="assets/images/placeholder.jpg" alt="Placeholder"><div class="model-name">Модель 6</div></div>
-  <div class="model-card disabled"><img src="assets/images/placeholder.jpg" alt="Placeholder"><div class="model-name">Модель 7</div></div>
-  <div class="model-card disabled"><img src="assets/images/placeholder.jpg" alt="Placeholder"><div class="model-name">Модель 8</div></div>
-</div>
+  <!-- Главный экран: мозаика из 8 кнопок -->
+  <div id="home">
+    <div class="grid">
+      
+      <!-- Кнопка 1: JJ -->
+      <button class="model-btn" onclick="loadModel('JJ')">
+        <img src="assets/images/JJ.jpg" alt="JJ" onerror="this.src='assets/images/placeholder.jpg'">
+        <div class="label">JJ</div>
+      </button>
 
-<!-- Экран просмотра -->
-<div id="viewer">
-  <button class="back-button" id="back-btn">← Назад</button>
-  <model-viewer id="model-viewer" ar ar-modes="webxr scene-viewer quick-look" camera-controls>
-    <!-- AR fallback message handled via JS -->
-  </model-viewer>
-  <button class="ar-button" id="ar-btn">Просмотр в AR</button>
-</div>
+      <!-- Кнопка 2: Shoker -->
+      <button class="model-btn" onclick="loadModel('Shoker')">
+        <img src="assets/images/Shoker.jpg" alt="Shoker" onerror="this.src='assets/images/placeholder.jpg'">
+        <div class="label">Shoker</div>
+      </button>
 
-<script>
-  const homeScreen = document.getElementById('home');
-  const viewerScreen = document.getElementById('viewer');
-  const modelViewer = document.getElementById('model-viewer');
-  const backBtn = document.getElementById('back-btn');
-  const arBtn = document.getElementById('ar-btn');
+      <!-- Кнопки 3–8: "В разработке" -->
+      <button class="model-btn" disabled onclick="showDevModal()">
+        <img src="assets/images/placeholder.jpg" alt="В разработке">
+        <div class="label">Модель 3</div>
+      </button>
+      <button class="model-btn" disabled onclick="showDevModal()">
+        <img src="assets/images/placeholder.jpg" alt="В разработке">
+        <div class="label">Модель 4</div>
+      </button>
+      <button class="model-btn" disabled onclick="showDevModal()">
+        <img src="assets/images/placeholder.jpg" alt="В разработке">
+        <div class="label">Модель 5</div>
+      </button>
+      <button class="model-btn" disabled onclick="showDevModal()">
+        <img src="assets/images/placeholder.jpg" alt="В разработке">
+        <div class="label">Модель 6</div>
+      </button>
+      <button class="model-btn" disabled onclick="showDevModal()">
+        <img src="assets/images/placeholder.jpg" alt="В разработке">
+        <div class="label">Модель 7</div>
+      </button>
+      <button class="model-btn" disabled onclick="showDevModal()">
+        <img src="assets/images/placeholder.jpg" alt="В разработке">
+        <div class="label">Модель 8</div>
+      </button>
+    </div>
+  </div>
 
-  // Открытие модели
-  document.querySelectorAll('.model-card:not(.disabled)').forEach(card => {
-    card.addEventListener('click', () => {
-      const modelName = card.dataset.model;
-      const src = `./${modelName}.glb`;
+  <!-- Экран просмотра 3D-модели -->
+  <div id="viewer">
+    <button id="back-btn" onclick="goHome()">←</button>
+    <div id="model-container">
+      <model-viewer
+        id="model-viewer"
+        alt="3D модель"
+        auto-rotate
+        camera-controls
+        ar
+        ar-modes="webxr scene-viewer quick-look"
+        shadow-intensity="1"
+        style="width: 100%; height: 100%;"
+      ></model-viewer>
+    </div>
+    <button id="ar-btn" onclick="enterAR()">Просмотр в AR</button>
+  </div>
+
+  <!-- Модальное окно: "В разработке" -->
+  <div class="modal" id="dev-modal">
+    <div class="modal-content">
+      <p>В разработке</p>
+      <button onclick="closeModal()">OK</button>
+    </div>
+  </div>
+
+  <!-- Модальное окно: "Телефон не поддерживается" -->
+  <div class="modal" id="unsupported-modal">
+    <div class="modal-content">
+      <p>Ваш телефон не поддерживается. Ищите новее</p>
+      <button onclick="closeModal()">OK</button>
+    </div>
+  </div>
+
+  <script>
+    // === Инициализация ===
+    let currentModel = '';
+
+    // === Функция перехода к просмотру модели ===
+    function loadModel(modelName) {
+      currentModel = modelName;
+
+      // Определяем, iOS ли это (для подмены .glb → .usdz)
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const extension = isIOS ? '.usdz' : '.glb';
+      const src = `${modelName}${extension}`;
+
+      // Устанавливаем модель в model-viewer
+      const modelViewer = document.getElementById('model-viewer');
       modelViewer.src = src;
 
-      // Меняем расширение для iOS (не обязательно, <model-viewer> сам обрабатывает)
-      // Но файлы .glb работают и на iOS через Quick Look
-
-      homeScreen.style.display = 'none';
-      viewerScreen.style.display = 'flex';
-    });
-  });
-
-  // Нажатие на "В разработке"
-  document.querySelectorAll('.model-card.disabled').forEach(card => {
-    card.addEventListener('click', () => {
-      alert('В разработке');
-    });
-  });
-
-  // Назад
-  backBtn.addEventListener('click', () => {
-    viewerScreen.style.display = 'none';
-    homeScreen.style.display = 'grid';
-  });
-
-  // AR-кнопка
-  arBtn.addEventListener('click', () => {
-    if (!modelViewer.canActivateAR) {
-      alert('Ваш телефон не поддерживается. Поищите поновее');
-      return;
+      // Переключаем экраны
+      document.getElementById('home').style.display = 'none';
+      document.getElementById('viewer').style.display = 'flex';
     }
-    modelViewer.activateAR();
-  });
-</script>
 
+    // === Функция возврата на главный экран ===
+    function goHome() {
+      document.getElementById('home').style.display = 'block';
+      document.getElementById('viewer').style.display = 'none';
+    }
+
+    // === Функция входа в AR (с проверкой поддержки) ===
+    async function enterAR() {
+      const modelViewer = document.getElementById('model-viewer');
+      try {
+        if (modelViewer.arSupported) {
+          await modelViewer.activateAR();
+        } else {
+          document.getElementById('unsupported-modal').classList.add('show');
+        }
+      } catch (err) {
+        document.getElementById('unsupported-modal').classList.add('show');
+      }
+    }
+
+    // === Открытие модального окна "В разработке" ===
+    function showDevModal() {
+      document.getElementById('dev-modal').classList.add('show');
+    }
+
+    // === Закрытие любого модального окна ===
+    function closeModal() {
+      document.querySelectorAll('.modal').forEach(modal => {
+        modal.classList.remove('show');
+      });
+    }
+
+    // === Закрытие модальных окон по клику вне содержимого ===
+    document.querySelectorAll('.modal').forEach(modal => {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+      });
+    });
+  </script>
 </body>
 </html>
