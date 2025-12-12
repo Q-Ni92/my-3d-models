@@ -273,8 +273,9 @@
     async function enterAR() {
       const modelViewer = document.getElementById('model-viewer');
       try {
+        await modelViewer.waitForLoad();
         if (modelViewer.arSupported) {
-          await modelViewer.activateAR();
+          modelViewer.activateAR();
         } else {
           document.getElementById('unsupported-modal').classList.add('show');
         }
