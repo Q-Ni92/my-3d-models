@@ -73,7 +73,6 @@
   </style>
 </head>
 <body>
-  <!-- Экран инструкции -->
   <div id="ui">
     <div>Наведите камеру на маркер:</div>
     <img id="marker-img" src="https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/images/HIRO.jpg" alt="HIRO маркер">
@@ -81,100 +80,106 @@
     <div id="loading">Загрузка модели…</div>
   </div>
 
-  <!-- AR-контейнер (скрыт до запуска) -->
   <div id="ar-container"></div>
   <button class="back-btn" onclick="window.location.href='indexQR.html'">←</button>
 
-  <!-- Подключение лёгких библиотек -->
+  <!-- Подключаем скрипты в правильном порядке -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+  <!-- GLTFLoader как standalone (использует глобальный THREE) -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
+  <!-- AR.js для THREE.js (без A-Frame) -->
   <script src="https://cdn.jsdelivr.net/npm/@ar-js-org/ar.js@3.4.0/threejs/build/ar-nft.js"></script>
-  <script>
-    // URL модели (замени на свой)
-    const MODEL_URL = 'https://q-ni92.github.io/my-3d-models/JJ.glb';
 
-    document.getElementById('start-btn').addEventListener('click', async () => {
+  <script>
+    // Убедимся, что всё загружено
+    if (typeof THREE === 'undefined' || typeof THREEx === 'undefined') {
+      alert('Ошибка загрузки библиотек. Проверьте подключение к интернету.');
+    }
+
+    const MODEL_URL = 'https://q-ni92.github.io/my-3d-models/Shoker.glb';
+
+    document.getElementById('start-btn').addEventListener('click', () => {
       const ui = document.getElementById('ui');
       const loading = document.getElementById('loading');
       const arContainer = document.getElementById('ar-container');
 
-      // Показываем загрузку
       loading.style.display = 'block';
       document.getElementById('start-btn').disabled = true;
 
       try {
-        // Загружаем GLTFLoader (динамически, чтобы не тянуть его всегда)
-        const [{ GLTFLoader }] = await Promise.all([
-          import('https://cdn.jsdelivr.net/npm/three@0.152.2/examples/jsm/loaders/GLTFLoader.js'),
-          new Promise(r => setTimeout(r, 300)) // небольшая пауза для UX
-        ]);
-
-        // Настраиваем AR
+        // --- Настройка сцены ---
         const scene = new THREE.Scene();
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.shadowMap.enabled = true;
         arContainer.appendChild(renderer.domElement);
 
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const light = new THREE.DirectionalLight(0xffffff, 1);
-        light.position.set(0, 10, 5);
-        scene.add(light);
-        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+        scene.add(new THREE.AmbientLight(0xffffff, 1.2));
 
-        let model;
-        const loader = new GLTFLoader();
-        const gltf = await loader.loadAsync(MODEL_URL);
-        model = gltf.scene;
-        model.scale.set(0.2, 0.2, 0.2);
-        model.rotation.x = -Math.PI / 2;
-        scene.add(model);
+        // --- Загрузка модели ---
+        const loader = new THREE.GLTFLoader();
+        loader.load(
+          MODEL_URL,
+          (gltf) => {
+            const model = gltf.scene;
+            model.scale.set(0.2, 0.2, 0.2);
+            model.rotation.x = -Math.PI / 2;
+            scene.add(model);
 
-        // Инициализация AR — используем HIRO (встроенный preset в AR.js для NFT)
-        const arToolkitSource = new THREEx.ArToolkitSource({
-          sourceType: 'webcam',
-          resolutionWidth: window.innerWidth,
-          resolutionHeight: window.innerHeight
-        });
+            // --- Инициализация AR ---
+            const arToolkitSource = new THREEx.ArToolkitSource({
+              sourceType: 'webcam',
+              resolutionWidth: window.innerWidth,
+              resolutionHeight: window.innerHeight
+            });
 
-        arToolkitSource.init(() => {
-          setTimeout(() => {
-            onResize();
-          }, 100);
-        });
+            arToolkitSource.init(() => {
+              setTimeout(() => {
+                onResize();
+              }, 100);
+            });
 
-        const arToolkitContext = new THREEx.ArToolkitContext({
-          cameraParametersUrl: 'https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/data/camera_para.dat',
-          detectionMode: 'mono_and_matrix'
-        });
+            const arToolkitContext = new THREEx.ArToolkitContext({
+              cameraParametersUrl: 'https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/data/camera_para.dat',
+              detectionMode: 'mono_and_matrix'
+            });
 
-        arToolkitContext.init(() => {
-          camera.projectionMatrix.copy(arToolkitContext.getProjectionMatrix());
-        });
+            arToolkitContext.init(() => {
+              camera.projectionMatrix.copy(arToolkitContext.getProjectionMatrix());
+            });
 
-        const markerRoot = new THREE.Group();
-        scene.add(markerRoot);
+            const markerRoot = new THREE.Group();
+            scene.add(markerRoot);
 
-        const arMarker = new THREEx.ArMarkerControls(arToolkitContext, markerRoot, {
-          type: 'pattern',
-          patternUrl: 'https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/data/hiro.patt'
-        });
+            new THREEx.ArMarkerControls(arToolkitContext, markerRoot, {
+              type: 'pattern',
+              patternUrl: 'https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/data/hiro.patt'
+            });
 
-        // Анимация
-        const animate = () => {
-          requestAnimationFrame(animate);
-          if (arToolkitSource.ready) {
-            arToolkitContext.update(arToolkitSource.domElement);
-            if (model) {
-              // Можно добавить вращение, если нужно
-              // model.rotation.y += 0.01;
-            }
+            // --- Анимация ---
+            const animate = () => {
+              requestAnimationFrame(animate);
+              if (arToolkitSource.ready) {
+                arToolkitContext.update(arToolkitSource.domElement);
+              }
+              renderer.render(scene, camera);
+            };
+            animate();
+
+            // --- Готово ---
+            ui.style.display = 'none';
+            arContainer.style.display = 'block';
+            loading.style.display = 'none';
+          },
+          undefined, // progress
+          (error) => {
+            console.error('Ошибка загрузки модели:', error);
+            loading.textContent = 'Ошибка модели: ' + error.message;
+            document.getElementById('start-btn').disabled = false;
           }
-          renderer.render(scene, camera);
-        };
-        animate();
+        );
 
-        // Масштабирование при повороте экрана
         function onResize() {
           arToolkitSource.onResizeElement();
           arToolkitSource.copyElementSizeTo(renderer.domElement);
@@ -184,13 +189,9 @@
         }
         window.addEventListener('resize', onResize);
 
-        // Скрываем UI, показываем AR
-        ui.style.display = 'none';
-        arContainer.style.display = 'block';
-
       } catch (err) {
-        console.error('Ошибка загрузки AR:', err);
-        loading.textContent = 'Ошибка: ' + (err.message || 'не удалось загрузить');
+        console.error('Ошибка инициализации AR:', err);
+        loading.textContent = 'Ошибка: ' + err.message;
         document.getElementById('start-btn').disabled = false;
       }
     });
