@@ -4,9 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Мои 3D-модели</title>
-  <!-- Стили для главной страницы и страницы просмотра -->
   <style>
-    /* Общие стили */
     * {
       box-sizing: border-box;
       margin: 0;
@@ -19,7 +17,6 @@
       padding: 20px;
     }
 
-    /* Стили главного экрана (мозаика) */
     #home {
       display: block;
     }
@@ -64,16 +61,16 @@
       font-size: 16px;
     }
 
-    /* Стили страницы просмотра 3D-модели */
     #viewer {
       display: none;
       flex-direction: column;
       height: 100vh;
+      position: relative;
     }
 
     #model-container {
       flex: 1;
-      background: #fff;
+      background: white;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -110,9 +107,9 @@
       font-size: 16px;
       cursor: pointer;
       z-index: 10;
+      display: none;
     }
 
-    /* Стили модального сообщения */
     .modal {
       position: fixed;
       top: 0;
@@ -154,28 +151,22 @@
     }
   </style>
 
-  <!-- Подключение model-viewer (Google Web Components для 3D и AR) -->
   <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
 </head>
 <body>
 
-  <!-- Главный экран: мозаика из 8 кнопок -->
+  <!-- Главный экран -->
   <div id="home">
     <div class="grid">
-      
-      <!-- Кнопка 1: JJ -->
       <button class="model-btn" onclick="loadModel('JJ')">
         <img src="assets/images/JJ.jpg" alt="JJ" onerror="this.src='assets/images/placeholder.jpg'">
         <div class="label">JJ</div>
       </button>
-
-      <!-- Кнопка 2: Shoker -->
       <button class="model-btn" onclick="loadModel('Shoker')">
         <img src="assets/images/Shoker.jpg" alt="Shoker" onerror="this.src='assets/images/placeholder.jpg'">
         <div class="label">Shoker</div>
       </button>
-
-      <!-- Кнопки 3–8: "В разработке" -->
+      <!-- Остальные 6 кнопок -->
       <button class="model-btn" disabled onclick="showDevModal()">
         <img src="assets/images/placeholder.jpg" alt="В разработке">
         <div class="label">Модель 3</div>
@@ -203,7 +194,7 @@
     </div>
   </div>
 
-  <!-- Экран просмотра 3D-модели -->
+  <!-- Экран просмотра -->
   <div id="viewer">
     <button id="back-btn" onclick="goHome()">←</button>
     <div id="model-container">
@@ -218,84 +209,101 @@
         shadow-intensity="1"
         animation-name="*"
         autoplay
-        style="width: 100%; height: 100%;"
+        background-color="#ffffff"
       ></model-viewer>
     </div>
     <button id="ar-btn" onclick="enterAR()">Просмотр в AR</button>
   </div>
 
-  <!-- Модальное окно: "В разработке" -->
+  <!-- Модальные окна -->
   <div class="modal" id="dev-modal">
     <div class="modal-content">
       <p>В разработке</p>
       <button onclick="closeModal()">OK</button>
     </div>
   </div>
-
-  <!-- Модальное окно: "Телефон не поддерживается" -->
-  <div class="modal" id="unsupported-modal">
+  <div class="modal" id="ar-unsupported-modal">
     <div class="modal-content">
-      <p>Ваш телефон не поддерживается. Ищите новее</p>
+      <p>AR не поддерживается устройством</p>
       <button onclick="closeModal()">OK</button>
     </div>
   </div>
 
   <script>
-    // === Инициализация ===
     let currentModel = '';
 
-    // === Функция перехода к просмотру модели ===
     function loadModel(modelName) {
       currentModel = modelName;
 
-      // Определяем, iOS ли это (для подмены .glb → .usdz)
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
       const extension = isIOS ? '.usdz' : '.glb';
       const src = `${modelName}${extension}`;
 
-      // Устанавливаем модель в model-viewer
       const modelViewer = document.getElementById('model-viewer');
+      const arBtn = document.getElementById('ar-btn');
+
+      // Скрываем кнопку AR (на случай повторного входа)
+      arBtn.style.display = 'none';
+
+      // Устанавливаем модель
       modelViewer.src = src;
 
-      // Переключаем экраны
+      // Переключаем экран
       document.getElementById('home').style.display = 'none';
       document.getElementById('viewer').style.display = 'flex';
+
+      // Слушаем загрузку
+      const onLoad = () => {
+        if (modelViewer.canActivateAR) {
+          arBtn.style.display = 'block';
+        } else {
+          // AR не поддерживается → показываем сообщение
+          document.getElementById('ar-unsupported-modal').classList.add('show');
+        }
+        modelViewer.removeEventListener('load', onLoad);
+      };
+
+      modelViewer.addEventListener('load', onLoad);
+
+      // Обработка ошибки загрузки модели
+      const onError = () => {
+        document.getElementById('ar-unsupported-modal').classList.add('show');
+        modelViewer.removeEventListener('error', onError);
+      };
+      modelViewer.addEventListener('error', onError);
     }
 
-    // === Функция возврата на главный экран ===
     function goHome() {
       document.getElementById('home').style.display = 'block';
       document.getElementById('viewer').style.display = 'none';
+      // Закрываем модальные окна при возврате
+      closeModal();
     }
 
-    // === Функция входа в AR (с проверкой поддержки) ===
     async function enterAR() {
       const modelViewer = document.getElementById('model-viewer');
       try {
         await modelViewer.waitForLoad();
-        if (modelViewer.arSupported) {
+        if (modelViewer.canActivateAR) {
           modelViewer.activateAR();
         } else {
-          document.getElementById('unsupported-modal').classList.add('show');
+          document.getElementById('ar-unsupported-modal').classList.add('show');
         }
       } catch (err) {
-        document.getElementById('unsupported-modal').classList.add('show');
+        document.getElementById('ar-unsupported-modal').classList.add('show');
       }
     }
 
-    // === Открытие модального окна "В разработке" ===
     function showDevModal() {
       document.getElementById('dev-modal').classList.add('show');
     }
 
-    // === Закрытие любого модального окна ===
     function closeModal() {
       document.querySelectorAll('.modal').forEach(modal => {
         modal.classList.remove('show');
       });
     }
 
-    // === Закрытие модальных окон по клику вне содержимого ===
     document.querySelectorAll('.modal').forEach(modal => {
       modal.addEventListener('click', (e) => {
         if (e.target === modal) closeModal();
