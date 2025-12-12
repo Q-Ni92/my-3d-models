@@ -75,6 +75,9 @@
       display: none;
       z-index: 1;
     }
+    #video-element {
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -88,96 +91,106 @@
   </div>
 
   <div id="ar-container"></div>
+  <video id="video-element" autoplay playsinline></video>
 
   <!-- Подключаем THREE.js -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.141.0/build/three.min.js"></script>
-  <!-- Подключаем GLTFLoader -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.141.0/examples/js/loaders/GLTFLoader.js"></script>
-  <!-- Подключаем AR.js (NFT/marker-based) -->
   <script src="https://raw.githack.com/AR-js-org/AR.js/master/three.js/build/ar-nft.js"></script>
 
   <script>
-    document.getElementById('start-ar-btn').addEventListener('click', () => {
-      // Скрываем инструкцию
-      document.getElementById('instruction-screen').style.display = 'none';
-      document.getElementById('ar-container').style.display = 'block';
+    document.getElementById('start-ar-btn').addEventListener('click', async () => {
+      const instructionScreen = document.getElementById('instruction-screen');
+      const arContainer = document.getElementById('ar-container');
+      const video = document.getElementById('video-element');
 
-      // Инициализация сцены
-      const scene = new THREE.Scene();
-      const camera = new THREE.Camera();
-      scene.add(camera);
+      try {
+        // 🔑 Запрашиваем доступ к камере ИМЕННО здес — внутри обработчика клика
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        video.srcObject = stream;
 
-      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-      renderer.setPixelRatio(window.devicePixelRatio);
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      document.getElementById('ar-container').appendChild(renderer.domElement);
+        // Скрываем инструкцию и показываем AR-контейнер
+        instructionScreen.style.display = 'none';
+        arContainer.style.display = 'block';
 
-      // Настройка AR.js
-      const arToolkitSource = new THREEx.ArToolkitSource({
-        sourceType: 'webcam',
-      });
+        // Инициализация THREE.js
+        const scene = new THREE.Scene();
+        const camera = new THREE.Camera();
+        scene.add(camera);
 
-      arToolkitSource.init(() => {
-        setTimeout(() => {
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        arContainer.appendChild(renderer.domElement);
+
+        // AR.js: источник — наш видео-элемент
+        const arToolkitSource = new THREEx.ArToolkitSource({
+          sourceType: 'video',
+          sourceVideoElement: video,
+        });
+
+        // Инициализация AR Toolkit Source
+        arToolkitSource.init(() => {
           onResize();
-        }, 2000);
-      });
+        });
 
-      // Обработка изменения размера
-      window.addEventListener('resize', onResize);
-      function onResize() {
-        if (!arToolkitSource.ready) return;
-        arToolkitSource.onResizeElement();
-        arToolkitSource.copyElementSizeTo(renderer.domElement);
-        if (arToolkitContext.arController !== null) {
-          arToolkitSource.copyElementSizeTo(arToolkitContext.arController.canvas);
+        // Обработка изменения размера
+        function onResize() {
+          arToolkitSource.onResizeElement();
+          arToolkitSource.copyElementSizeTo(renderer.domElement);
+          if (arToolkitContext.arController) {
+            arToolkitSource.copyElementSizeTo(arToolkitContext.arController.canvas);
+          }
         }
+        window.addEventListener('resize', onResize);
+
+        // Контекст AR
+        const arToolkitContext = new THREEx.ArToolkitContext({
+          cameraParametersUrl: 'https://raw.githack.com/AR-js-org/AR.js/master/data/data/camera_para.dat',
+          detectionMode: 'mono',
+        });
+
+        arToolkitContext.init(() => {
+          camera.projectionMatrix.copy(arToolkitContext.getProjectionMatrix());
+        });
+
+        // Создаем маркер HIRO
+        const markerRoot = new THREE.Group();
+        scene.add(markerRoot);
+        new THREEx.ArMarkerControls(arToolkitContext, markerRoot, {
+          type: 'pattern',
+          patternUrl: 'https://raw.githack.com/AR-js-org/AR.js/master/data/data/hiro.patt',
+        });
+
+        // Загружаем модель
+        const loader = new THREE.GLTFLoader();
+        loader.load(
+          'https://q-ni92.github.io/my-3d-models/JJ.glb',
+          (gltf) => {
+            const model = gltf.scene;
+            model.scale.set(0.5, 0.5, 0.5);
+            markerRoot.add(model);
+          },
+          undefined,
+          (error) => {
+            console.error('Ошибка загрузки модели JJ.glb:', error);
+          }
+        );
+
+        // Анимация
+        const animate = () => {
+          requestAnimationFrame(animate);
+          if (arToolkitSource.ready) {
+            arToolkitContext.update(arToolkitSource.domElement);
+            renderer.render(scene, camera);
+          }
+        };
+        animate();
+
+      } catch (err) {
+        alert('Не удалось получить доступ к камере: ' + (err.message || err));
+        console.error('Ошибка камеры:', err);
       }
-
-      // Инициализация контекста AR
-      const arToolkitContext = new THREEx.ArToolkitContext({
-        cameraParametersUrl: 'https://raw.githack.com/AR-js-org/AR.js/master/data/data/camera_para.dat',
-        detectionMode: 'mono',
-      });
-
-      arToolkitContext.init(() => {
-        camera.projectionMatrix.copy(arToolkitContext.getProjectionMatrix());
-      });
-
-      // Создание маркерного контроллера (HIRO)
-      const markerRoot = new THREE.Group();
-      scene.add(markerRoot);
-      const artoolkitMarker = new THREEx.ArMarkerControls(arToolkitContext, markerRoot, {
-        type: 'pattern',
-        patternUrl: 'https://raw.githack.com/AR-js-org/AR.js/master/data/data/hiro.patt',
-      });
-
-      // Загрузка модели JJ.glb
-      const loader = new THREE.GLTFLoader();
-      loader.load(
-        'https://q-ni92.github.io/my-3d-models/JJ.glb',
-        (gltf) => {
-          const model = gltf.scene;
-          model.scale.set(0.5, 0.5, 0.5); // Масштабируем, если нужно
-          model.position.set(0, 0, 0);
-          markerRoot.add(model);
-        },
-        undefined,
-        (error) => {
-          console.error('Ошибка загрузки модели:', error);
-        }
-      );
-
-      // Анимация и рендеринг
-      const clock = new THREE.Clock();
-      const animate = () => {
-        requestAnimationFrame(animate);
-        if (arToolkitSource.ready) {
-          arToolkitContext.update(arToolkitSource.domElement);
-          renderer.render(scene, camera);
-        }
-      };
-      animate();
     });
   </script>
 </body>
