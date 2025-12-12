@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JJ — QR AR</title>
+  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.min.js"></script>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    .instructions {
+      position: absolute;
+      top: 20px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      color: white;
+      background: rgba(0,0,0,0.6);
+      padding: 8px;
+      font-family: Arial, sans-serif;
+      z-index: 100;
+    }
+    .back-btn {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: rgba(255,255,255,0.8);
+      border: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      font-size: 20px;
+      cursor: pointer;
+      z-index: 101;
+    }
+  </style>
+</head>
+<body>
+  <div class="instructions">
+    Наведите камеру на <strong>HIRO-маркер</strong> (распечатайте его)
+  </div>
+  <button class="back-btn" onclick="window.history.back()">←</button>
+
+  <a-scene
+    vr-mode-ui="enabled: false"
+    arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix;"
+  >
+    <a-marker preset="hiro">
+      <a-entity
+        gltf-model="https://q-ni92.github.io/my-3d-models/JJ.glb"
+        scale="0.3 0.3 0.3"
+        position="0 0 0"
+        rotation="-90 0 0"
+      ></a-entity>
+    </a-marker>
+    <a-entity camera></a-entity>
+  </a-scene>
+</body>
+</html>
