@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Design</title>
+  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: white;
+    }
+
+    #ar-button {
+      padding: 16px 32px;
+      font-size: 20px;
+      cursor: pointer;
+      border: none;
+      background: #4285f4;
+      color: white;
+      border-radius: 8px;
+      z-index: 10;
+    }
+
+    model-viewer {
+      display: none;
+      width: 100%;
+      height: 100%;
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 1;
+    }
+
+    .custom-ar-button {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+
+      /* Овальная форма */
+      border-radius: 50px;
+
+      /* Стили кнопки */
+      background-color: #4285f4;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      transition: background-color 0.2s ease;
+    }
+
+    .custom-ar-button:hover {
+      background-color: #3367d6;
+    }
+  </style>
+</head>
+<body>
+  <button id="ar-button">Design</button>
+
+  <model-viewer
+    id="my-model"
+    src="https://q-ni92.github.io/my-3d-models/Design.glb"
+    ios-src="https://q-ni92.github.io/my-3d-models/Design.usdz"
+    ar
+    ar-modes="webxr scene-viewer quick-look"
+    camera-controls
+    shadow-intensity="1"
+    autoplay
+    touch-action="pan-y"
+  >
+    <button slot="ar-button" class="custom-ar-button">
+      Смотреть в AR
+    </button>
+  </model-viewer>
+
+  <script type="module">
+    document.getElementById('ar-button').addEventListener('click', async () => {
+      const button = document.getElementById('ar-button');
+      const viewer = document.getElementById('my-model');
+
+      button.style.display = 'none';
+      viewer.style.display = 'block';
+
+      try {
+        await viewer.waitForLoad();
+        if (viewer.arSupported) {
+          viewer.activateAR();
+        } else {
+          console.log('AR не поддерживается, показываем 3D');
+        }
+      } catch (e) {
+        console.error('Ошибка загрузки модели:', e);
+      }
+    });
+  </script>
+</body>
+</html>
