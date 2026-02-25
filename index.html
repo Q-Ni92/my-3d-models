@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Screen Mirror</title>
-    <!-- Подключаем библиотеку PeerJS для P2P соединения -->
-    <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
+    <title>Screen Mirror (P2P)</title>
+    <!-- Библиотека Simple-Peer для WebRTC -->
+    <script src="https://unpkg.com/simple-peer@9.11.1/simplepeer.min.js"></script>
     <style>
         body {
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-family: 'Segoe UI', Roboto, sans-serif;
             background-color: #121212;
             color: #ffffff;
             display: flex;
@@ -20,61 +20,57 @@
             overflow: hidden;
         }
 
-        /* Главный контейнер меню */
-        #menu {
+        /* Контейнеры */
+        #menu, #connection-steps {
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 15px;
             text-align: center;
+            width: 90%;
+            max-width: 400px;
         }
 
-        /* Стили кнопок */
+        #connection-steps { display: none; }
+
+        /* Кнопки */
         button {
-            padding: 15px 40px;
-            font-size: 18px;
+            padding: 15px;
+            font-size: 16px;
             border: none;
-            border-radius: 12px;
+            border-radius: 8px;
             cursor: pointer;
-            transition: transform 0.1s, opacity 0.2s;
             font-weight: bold;
-            width: 200px;
+            transition: 0.2s;
         }
 
-        button:active {
-            transform: scale(0.95);
+        .btn-show { background-color: #3b82f6; color: white; }
+        .btn-watch { background-color: #10b981; color: white; }
+        .btn-stop { background-color: #ef4444; color: white; margin-top: 10px; width: 100%; }
+        .btn-copy { background-color: #4b5563; color: white; font-size: 12px; padding: 8px; margin-top: 5px;}
+
+        /* Поля ввода и текста */
+        textarea {
+            width: 100%;
+            height: 80px;
+            background: #1f2937;
+            color: #fff;
+            border: 1px solid #374151;
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 12px;
+            resize: none;
+            box-sizing: border-box;
         }
 
-        .btn-show {
-            background-color: #3b82f6;
-            color: white;
-            box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
-        }
+        label { font-size: 12px; color: #9ca3af; text-align: left; display: block; margin-top: 10px;}
 
-        .btn-watch {
-            background-color: #10b981;
-            color: white;
-            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
-        }
-
-        .btn-stop {
-            background-color: #ef4444;
-            color: white;
-            padding: 10px 20px;
-            font-size: 14px;
-            width: auto;
-            margin-top: 10px;
-            opacity: 0.8;
-        }
-
-        /* Контейнер видео (скрыт по умолчанию) */
+        /* Видео */
         #stream-view {
             display: none;
             flex-direction: column;
-            align-items: center;
             width: 100%;
             height: 100%;
         }
-
         video {
             width: 100%;
             height: 100%;
@@ -82,18 +78,12 @@
             background: #000;
         }
 
-        /* Статус и ID */
-        #status {
-            margin-top: 10px;
-            font-size: 14px;
-            color: #aaa;
-            max-width: 300px;
-            text-align: center;
-            word-break: break-all;
-        }
-
-        .hidden {
-            display: none !important;
+        .hidden { display: none !important; }
+        .step-box {
+            background: #1f2937;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
         }
     </style>
 </head>
@@ -101,149 +91,183 @@
 
     <!-- Главное меню -->
     <div id="menu">
-        <button class="btn-show" onclick="startSharing()">ПОКАЗАТЬ</button>
-        <button class="btn-watch" onclick="startWatching()">СМОТРЕТЬ</button>
+        <h2>Демонстрация экрана</h2>
+        <button class="btn-show" onclick="initiateShow()">ПОКАЗАТЬ</button>
+        <button class="btn-watch" onclick="initiateWatch()">СМОТРЕТЬ</button>
+    </div>
+
+    <!-- Меню подключения (SDP обмен) -->
+    <div id="connection-steps">
+        <div id="step-offer" class="step-box hidden">
+            <label>1. Скопируйте этот код и отправьте зрителю:</label>
+            <textarea id="local-offer" readonly></textarea>
+            <button class="btn-copy" onclick="copyToClipboard('local-offer')">Копировать код</button>
+        </div>
+
+        <div id="step-answer-input" class="step-box hidden">
+            <label>2. Вставьте код от зрителя сюда:</label>
+            <textarea id="remote-answer" placeholder="Вставьте ответ здесь..."></textarea>
+            <button class="btn-show" onclick="finalizeConnection()">Подключиться</button>
+        </div>
+
+        <div id="step-watch-offer-input" class="step-box hidden">
+            <label>1. Вставьте код от того, кто показывает:</label>
+            <textarea id="remote-offer" placeholder="Вставьте код здесь..."></textarea>
+            <button class="btn-watch" onclick="generateAnswer()">Сгенерировать ответ</button>
+        </div>
+
+        <div id="step-watch-answer" class="step-box hidden">
+            <label>2. Скопируйте этот код и отправьте показывающему:</label>
+            <textarea id="local-answer" readonly></textarea>
+            <button class="btn-copy" onclick="copyToClipboard('local-answer')">Копировать код</button>
+            <p style="font-size: 12px; color: #aaa; margin-top:5px;">После того как он вставит код, начнется трансляция.</p>
+        </div>
+        
+        <button class="btn-stop" onclick="resetApp()">Назад</button>
     </div>
 
     <!-- Экран трансляции -->
     <div id="stream-view">
         <video id="remoteVideo" autoplay playsinline></video>
-        <div id="status"></div>
-        <button class="btn-stop" onclick="stopStream()">Остановить</button>
+        <button class="btn-stop" onclick="stopStream()" style="position: absolute; bottom: 20px; width: auto; padding: 10px 30px;">Остановить</button>
     </div>
 
     <script>
         let peer = null;
-        let localStream = null;
-        let currentCall = null;
-        
-        const menu = document.getElementById('menu');
-        const streamView = document.getElementById('stream-view');
+        let stream = null;
         const videoElement = document.getElementById('remoteVideo');
-        const statusText = document.getElementById('status');
-
-        // Инициализация PeerJS (используем их бесплатный облачный сервер)
-        function initPeer() {
-            // Создаем Peer с рандомным ID
-            peer = new Peer(null, {
-                debug: 2
-            });
-
-            peer.on('open', (id) => {
-                console.log('My peer ID is: ' + id);
-                statusText.innerText = "ID подключения: " + id;
-            });
-
-            peer.on('error', (err) => {
-                console.error(err);
-                alert("Ошибка соединения: " + err.type);
-                stopStream();
-            });
-        }
 
         // --- ЛОГИКА "ПОКАЗАТЬ" ---
-        async function startSharing() {
+        async function initiateShow() {
             try {
-                // 1. Запрашиваем захват экрана
-                localStream = await navigator.mediaDevices.getDisplayMedia({
+                // Захват экрана
+                stream = await navigator.mediaDevices.getDisplayMedia({
                     video: { cursor: "always" },
-                    audio: false // Можно включить true, если нужно передавать звук системы
+                    audio: false
                 });
 
-                // 2. Переключаем интерфейс
-                showStreamInterface();
+                showConnectionUI('show');
                 
-                // 3. Инициализируем соединение
-                initPeer();
-
-                // 4. Ждем входящего вызова от "Смотрящего"
-                peer.on('call', (call) => {
-                    call.answer(localStream); // Отвечаем своим потоком
-                    currentCall = call;
-                    statusText.innerText = "Трансляция идет... (ID: " + peer.id + ")";
-                    
-                    call.on('close', () => {
-                        stopStream();
-                    });
+                // Создаем Peer (инициатор)
+                peer = new SimplePeer({
+                    initiator: true,
+                    trickle: false, // Ждем полный сигнал перед выдачей
+                    stream: stream
                 });
 
-                // Если пользователь нажмет "Остановить" в системном меню Android
-                localStream.getVideoTracks()[0].onended = () => {
-                    stopStream();
-                };
+                peer.on('signal', data => {
+                    // Когда готов сигнал (Offer), показываем его пользователю
+                    document.getElementById('local-offer').value = JSON.stringify(data);
+                    document.getElementById('step-offer').classList.remove('hidden');
+                    document.getElementById('step-answer-input').classList.remove('hidden');
+                });
+
+                peer.on('stream', remoteStream => {
+                    // Если вдруг придет поток (для симметрии, хотя тут мы только шлем)
+                    videoElement.srcObject = remoteStream;
+                });
+
+                // Обработка конца трансляции
+                stream.getVideoTracks()[0].onended = () => stopStream();
 
             } catch (err) {
-                console.error("Ошибка захвата экрана: " + err);
-                alert("Не удалось захватить экран. Убедитесь, что используете HTTPS.");
+                alert("Ошибка доступа к экрану: " + err);
+                resetApp();
+            }
+        }
+
+        function finalizeConnection() {
+            const answerStr = document.getElementById('remote-answer').value;
+            if (!answerStr) return alert("Вставьте код ответа!");
+            
+            try {
+                peer.signal(JSON.parse(answerStr));
+                startVideoView();
+            } catch (e) {
+                alert("Неверный формат кода");
             }
         }
 
         // --- ЛОГИКА "СМОТРЕТЬ" ---
-        function startWatching() {
-            // 1. Запрашиваем ID у пользователя
-            const destId = prompt("Введите ID того, кто показывает экран:", "");
-            
-            if (!destId) return;
-
-            // 2. Инициализируем Peer
-            initPeer();
-
-            // 3. Ждем готовности Peer, затем звоним
-            peer.on('open', (id) => {
-                statusText.innerText = "Подключение к " + destId + "...";
-                
-                const call = peer.call(destId, null); // Звоним без своего потока (мы только слушаем)
-                
-                call.on('stream', (remoteStream) => {
-                    // Получили поток!
-                    showStreamInterface();
-                    videoElement.srcObject = remoteStream;
-                    statusText.innerText = "Просмотр трансляции...";
-                    currentCall = call;
-                });
-
-                call.on('close', () => {
-                    stopStream();
-                });
-                
-                call.on('error', (err) => {
-                    alert("Ошибка подключения. Проверьте ID.");
-                    stopStream();
-                });
+        function initiateWatch() {
+            showConnectionUI('watch');
+            // Создаем Peer (получатель)
+            peer = new SimplePeer({
+                initiator: false,
+                trickle: false
             });
+
+            peer.on('signal', data => {
+                // Когда сгенерировали Answer
+                document.getElementById('local-answer').value = JSON.stringify(data);
+                document.getElementById('step-watch-answer').classList.remove('hidden');
+            });
+
+            peer.on('stream', remoteStream => {
+                videoElement.srcObject = remoteStream;
+                startVideoView();
+            });
+        }
+
+        function generateAnswer() {
+            const offerStr = document.getElementById('remote-offer').value;
+            if (!offerStr) return alert("Вставьте код предложения (Offer)!");
+
+            try {
+                peer.signal(JSON.parse(offerStr));
+                document.getElementById('step-watch-offer-input').classList.add('hidden');
+            } catch (e) {
+                alert("Неверный формат кода");
+            }
         }
 
         // --- ОБЩИЕ ФУНКЦИИ ---
 
-        function showStreamInterface() {
-            menu.classList.add('hidden');
-            streamView.style.display = 'flex';
+        function showConnectionUI(role) {
+            document.getElementById('menu').classList.add('hidden');
+            document.getElementById('connection-steps').style.display = 'flex';
+            
+            // Скрываем все шаги сначала
+            document.querySelectorAll('.step-box').forEach(el => el.classList.add('hidden'));
+
+            if (role === 'show') {
+                // Для показывающего: сразу показываем Offer и поле для ввода Answer
+                document.getElementById('step-offer').classList.remove('hidden');
+                document.getElementById('step-answer-input').classList.remove('hidden');
+            } else {
+                // Для смотрящего: показываем поле для ввода Offer
+                document.getElementById('step-watch-offer-input').classList.remove('hidden');
+            }
+        }
+
+        function startVideoView() {
+            document.getElementById('connection-steps').style.display = 'none';
+            document.getElementById('stream-view').style.display = 'flex';
         }
 
         function stopStream() {
-            // Останавливаем треки (камеру/экран)
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-                localStream = null;
-            }
-
-            // Закрываем соединение
-            if (currentCall) {
-                currentCall.close();
-                currentCall = null;
-            }
-            if (peer) {
-                peer.destroy();
-                peer = null;
-            }
-
-            // Сбрасываем видео
+            if (peer) peer.destroy();
+            if (stream) stream.getTracks().forEach(track => track.stop());
             videoElement.srcObject = null;
+            resetApp();
+        }
 
-            // Возвращаем меню
-            streamView.style.display = 'none';
-            menu.classList.remove('hidden');
-            statusText.innerText = "";
+        function resetApp() {
+            document.getElementById('stream-view').style.display = 'none';
+            document.getElementById('connection-steps').style.display = 'none';
+            document.getElementById('menu').classList.remove('hidden');
+            
+            // Очистка полей
+            document.querySelectorAll('textarea').forEach(t => t.value = '');
+            peer = null;
+            stream = null;
+        }
+
+        function copyToClipboard(elementId) {
+            const copyText = document.getElementById(elementId);
+            copyText.select();
+            document.execCommand("copy");
+            alert("Код скопирован в буфер обмена!");
         }
     </script>
 </body>
