@@ -84,6 +84,7 @@
             font-size: 1rem;
             cursor: pointer;
             transition: background 0.2s;
+            margin-bottom: 10px;
         }
         .action-btn.primary { background: #667eea; color: white; }
         .action-btn.primary:hover { background: #5568d3; }
@@ -127,6 +128,23 @@
             color: #888;
             margin-top: 8px;
         }
+
+        /* Диагностика */
+        .debug-info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 20px;
+            font-size: 0.75rem;
+            font-family: monospace;
+            color: #495057;
+            display: none;
+        }
+        .debug-info.visible { display: block; }
+        .debug-info div { margin: 4px 0; }
+        .debug-info .ok { color: #28a745; }
+        .debug-info .err { color: #dc3545; }
     </style>
 </head>
 <body>
@@ -171,6 +189,16 @@
     <div class="video-container" id="videoContainer">
         <video id="videoElement" autoplay playsinline></video>
     </div>
+
+    <!-- Диагностика -->
+    <div class="debug-info" id="debugInfo">
+        <div><strong>🔍 Диагностика:</strong></div>
+        <div id="debug-https"></div>
+        <div id="debug-media"></div>
+        <div id="debug-display"></div>
+        <div id="debug-ua"></div>
+        <div id="debug-chrome"></div>
+    </div>
 </div>
 
 <script>
@@ -183,34 +211,46 @@
     const statusText = document.getElementById('statusText');
     const videoElement = document.getElementById('videoElement');
     const videoContainer = document.getElementById('videoContainer');
+    const debugInfo = document.getElementById('debugInfo');
 
-    // Проверка браузера при загрузке
+    // Показываем диагностику при загрузке
     window.addEventListener('load', () => {
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-        const isAndroid = /Android/.test(navigator.userAgent);
-        
-        if (isIOS) {
-            showError('⛔ На iPhone трансляция экрана через сайт не работает. Используйте Android или ПК.');
-            return;
-        }
-        
-        if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-            showError('⛔ Требуется HTTPS. Откройте сайт через защищенное соединение.');
-            return;
-        }
-
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-            showError('⛔ Ваш браузер не поддерживает захват экрана. Используйте Chrome.');
-            return;
-        }
-
+        showDebugInfo();
         statusText.textContent = 'Выберите роль выше';
     });
+
+    function showDebugInfo() {
+        debugInfo.classList.add('visible');
+        
+        // HTTPS
+        const isHttps = location.protocol === 'https:' || location.hostname === 'localhost';
+        document.getElementById('debug-https').innerHTML = 
+            `HTTPS: <span class="${isHttps ? 'ok' : 'err'}">${isHttps ? '✓ Да' : '✗ Нет'}</span>`;
+        
+        // MediaDevices
+        const hasMedia = !!(navigator.mediaDevices);
+        document.getElementById('debug-media').innerHTML = 
+            `mediaDevices: <span class="${hasMedia ? 'ok' : 'err'}">${hasMedia ? '✓ Есть' : '✗ Нет'}</span>`;
+        
+        // getDisplayMedia
+        const hasDisplay = !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
+        document.getElementById('debug-display').innerHTML = 
+            `getDisplayMedia: <span class="${hasDisplay ? 'ok' : 'err'}">${hasDisplay ? '✓ Поддерживается' : '✗ НЕ поддерживается'}</span>`;
+        
+        // User Agent
+        document.getElementById('debug-ua').textContent = `UA: ${navigator.userAgent.substring(0, 50)}...`;
+        
+        // Chrome версия
+        const chromeMatch = navigator.userAgent.match(/Chrome\/(\d+)/);
+        const chromeVer = chromeMatch ? chromeMatch[1] : 'Не Chrome';
+        const chromeOk = chromeVer !== 'Не Chrome' && parseInt(chromeVer) >= 74;
+        document.getElementById('debug-chrome').innerHTML = 
+            `Chrome: <span class="${chromeOk ? 'ok' : 'err'}">${chromeVer} ${chromeOk ? '(OK)' : '(Нужно 74+)'}</span>`;
+    }
 
     function showError(msg) {
         errorBox.textContent = msg;
         errorBox.classList.add('visible');
-        document.getElementById('roleSelect').style.display = 'none';
     }
 
     function selectRole(role) {
@@ -237,7 +277,6 @@
             }
         });
 
-        // Стример принимает входящий звонок
         peer.on('call', (call) => {
             if (myRole === 'streamer' && localStream) {
                 call.answer(localStream);
@@ -253,6 +292,16 @@
 
     // === ЛОГИКА СТРИМЕРА ===
     async function startStream() {
+        // Проверка в момент нажатия кнопки
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+            showError('⛔ Ваш браузер не поддерживает захват экрана.\n\n' + 
+                      'Попробуйте:\n' + 
+                      '1. Обновить Chrome до последней версии\n' + 
+                      '2. Открыть в режиме "Версия для ПК"\n' + 
+                      '3. Использовать другой браузер (Firefox, Edge)');
+            return;
+        }
+
         try {
             statusText.textContent = 'Запрос доступа к экрану...';
             
@@ -261,7 +310,6 @@
                 audio: false
             });
 
-            // Превью у себя (опционально, можно скрыть)
             videoElement.srcObject = localStream;
             videoContainer.classList.add('visible');
 
@@ -269,11 +317,11 @@
             document.getElementById('btnStopStream').classList.add('visible');
             statusText.textContent = 'Трансляция идет. Ждем зрителя...';
 
-            // Если пользователь нажмет "Стоп" в системном диалоге
             localStream.getVideoTracks()[0].onended = () => stopStream();
 
         } catch (err) {
             statusText.textContent = 'Ошибка: ' + err.message;
+            console.error('Screen share error:', err);
         }
     }
 
@@ -304,7 +352,6 @@
 
         statusText.textContent = 'Подключение...';
         
-        // Звоним стримеру (отправляем null, так как мы только смотрим)
         const call = peer.call(streamerId, null);
         setupCall(call);
     }
@@ -321,7 +368,6 @@
         statusText.textContent = 'Отключено';
     }
 
-    // === ОБЩАЯ ЛОГИКА ВЫЗОВА ===
     function setupCall(call) {
         currentCall = call;
 
