@@ -2,573 +2,249 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Трансляция экрана</title>
-    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Screen Mirror</title>
+    <!-- Подключаем библиотеку PeerJS для P2P соединения -->
+    <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-            background: #f5f5f5;
-            min-height: 100vh;
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 15px;
-        }
-        .container {
-            background: white;
-            border-radius: 16px;
-            padding: 20px;
-            max-width: 400px;
-            width: 100%;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-        }
-        h1 { text-align: center; color: #333; margin-bottom: 5px; font-size: 1.4rem; }
-        .subtitle { text-align: center; color: #888; margin-bottom: 20px; font-size: 0.85rem; }
-        
-        .room-info {
-            background: #e8f4fd;
-            border: 1px solid #b3d9ff;
-            border-radius: 8px;
-            padding: 10px;
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        .room-info strong { color: #0066cc; }
-        
-        .role-select {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-        .role-btn {
-            padding: 14px 10px;
-            border: 2px solid #e0e0e0;
-            border-radius: 12px;
-            background: white;
-            cursor: pointer;
-            font-size: 0.9rem;
-            transition: all 0.2s;
-            text-align: center;
-        }
-        .role-btn:hover { border-color: #667eea; }
-        .role-btn.active {
-            border-color: #667eea;
-            background: #667eea;
-            color: white;
-        }
-        .role-icon { font-size: 1.3rem; display: block; margin-bottom: 4px; }
-        
-        .id-box {
-            background: #f0f0f0;
-            border-radius: 8px;
-            padding: 10px;
-            margin-bottom: 15px;
-            display: none;
-        }
-        .id-box.visible { display: block; }
-        
-        .id-display {
-            font-family: monospace;
-            font-size: 1.1rem;
-            font-weight: bold;
-            text-align: center;
-            letter-spacing: 1px;
-            word-break: break-all;
-            margin-bottom: 10px;
-            user-select: all;
-        }
-        
-        .copy-btn {
-            width: 100%;
-            padding: 10px;
-            background: #28a745;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .copy-btn:hover { background: #218838; }
-        .copy-btn:active { background: #1e7e34; }
-        .copy-btn.copied { background: #6c757d; }
-        
-        .copy-hint {
-            text-align: center;
-            font-size: 0.75rem;
-            color: #888;
-            margin-bottom: 15px;
-        }
-        
-        /* Цифровая клавиатура */
-        .keypad {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-            margin-bottom: 15px;
-        }
-        .key {
-            padding: 15px;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            background: #f8f9fa;
-            font-size: 1.2rem;
-            font-weight: 600;
-            cursor: pointer;
-            text-align: center;
-            transition: background 0.1s;
-        }
-        .key:active { background: #e0e0e0; }
-        .key.action { background: #667eea; color: white; border: none; }
-        .key.action:active { background: #5568d3; }
-        .key.clear { background: #dc3545; color: white; border: none; }
-        .key.clear:active { background: #c82333; }
-        
-        .code-input {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 1.2rem;
-            text-align: center;
-            margin-bottom: 15px;
-            font-family: monospace;
-            letter-spacing: 3px;
-        }
-        .code-input:focus { outline: none; border-color: #667eea; }
-        
-        .action-btn {
-            width: 100%;
-            padding: 14px;
-            border: none;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s;
-            margin-bottom: 10px;
-        }
-        .action-btn.primary { background: #667eea; color: white; }
-        .action-btn.primary:hover { background: #5568d3; }
-        .action-btn.danger { background: #dc3545; color: white; display: none; }
-        .action-btn.danger.visible { display: block; }
-        .action-btn:disabled { background: #ccc; cursor: not-allowed; }
-        
-        .status {
-            text-align: center;
-            margin-top: 15px;
-            color: #666;
-            font-size: 0.85rem;
-            min-height: 18px;
-        }
-        
-        .video-container {
-            margin-top: 15px;
-            border-radius: 12px;
+            height: 100vh;
+            margin: 0;
             overflow: hidden;
-            background: #000;
-            display: none;
-            aspect-ratio: 16/9;
         }
-        .video-container.visible { display: block; }
-        video { width: 100%; height: 100%; object-fit: contain; }
-        
-        .error-box {
-            background: #ffe6e6;
-            color: #dc3545;
-            padding: 10px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            display: none;
-            font-size: 0.85rem;
-            line-height: 1.4;
-        }
-        .error-box.visible { display: block; }
 
-        .debug-toggle {
+        /* Главный контейнер меню */
+        #menu {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
             text-align: center;
-            margin-top: 20px;
-            font-size: 0.75rem;
-            color: #999;
-            cursor: pointer;
         }
-        .debug-info {
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            padding: 10px;
-            margin-top: 10px;
-            font-size: 0.7rem;
-            font-family: monospace;
-            color: #495057;
-            display: none;
-        }
-        .debug-info.visible { display: block; }
-        .debug-info div { margin: 3px 0; }
-        .debug-info .ok { color: #28a745; }
-        .debug-info .err { color: #dc3545; }
 
-        .hidden { display: none; }
-        
-        /* Уведомление о копировании */
-        .toast {
-            position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #333;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            opacity: 0;
-            transition: opacity 0.3s;
-            pointer-events: none;
-            z-index: 1000;
+        /* Стили кнопок */
+        button {
+            padding: 15px 40px;
+            font-size: 18px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+            font-weight: bold;
+            width: 200px;
         }
-        .toast.visible { opacity: 1; }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        .btn-show {
+            background-color: #3b82f6;
+            color: white;
+            box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-watch {
+            background-color: #10b981;
+            color: white;
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-stop {
+            background-color: #ef4444;
+            color: white;
+            padding: 10px 20px;
+            font-size: 14px;
+            width: auto;
+            margin-top: 10px;
+            opacity: 0.8;
+        }
+
+        /* Контейнер видео (скрыт по умолчанию) */
+        #stream-view {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            height: 100%;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #000;
+        }
+
+        /* Статус и ID */
+        #status {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #aaa;
+            max-width: 300px;
+            text-align: center;
+            word-break: break-all;
+        }
+
+        .hidden {
+            display: none !important;
+        }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h1>📱 Трансляция экрана</h1>
-    <p class="subtitle">Единая комната</p>
-
-    <div class="room-info">
-        Код комнаты: <strong>ROOM-01</strong>
+    <!-- Главное меню -->
+    <div id="menu">
+        <button class="btn-show" onclick="startSharing()">ПОКАЗАТЬ</button>
+        <button class="btn-watch" onclick="startWatching()">СМОТРЕТЬ</button>
     </div>
 
-    <div id="errorBox" class="error-box"></div>
-
-    <!-- Выбор роли -->
-    <div class="role-select" id="roleSelect">
-        <div class="role-btn" onclick="selectRole('streamer')">
-            <span class="role-icon">📱</span>
-            Трансляция
-        </div>
-        <div class="role-btn" onclick="selectRole('viewer')">
-            <span class="role-icon">👁️</span>
-            Просмотр
-        </div>
+    <!-- Экран трансляции -->
+    <div id="stream-view">
+        <video id="remoteVideo" autoplay playsinline></video>
+        <div id="status"></div>
+        <button class="btn-stop" onclick="stopStream()">Остановить</button>
     </div>
 
-    <!-- Блок для стримера -->
-    <div id="streamerBlock" class="hidden">
-        <div class="id-box" id="idBox">
-            <div class="id-display" id="myIdDisplay">Загрузка...</div>
-            <button class="copy-btn" onclick="copyId()">📋 Копировать ID</button>
-        </div>
-        <p class="copy-hint">Отправьте этот ID зрителю в мессенджер</p>
+    <script>
+        let peer = null;
+        let localStream = null;
+        let currentCall = null;
         
-        <button class="action-btn primary" id="btnStartStream" onclick="startStream()">🎬 Начать трансляцию</button>
-        <button class="action-btn danger" id="btnStopStream" onclick="stopStream()">⏹ Остановить</button>
-    </div>
+        const menu = document.getElementById('menu');
+        const streamView = document.getElementById('stream-view');
+        const videoElement = document.getElementById('remoteVideo');
+        const statusText = document.getElementById('status');
 
-    <!-- Блок для зрителя -->
-    <div id="viewerBlock" class="hidden">
-        <input type="text" class="code-input" id="streamerId" placeholder="ID стримера" readonly>
-        
-        <div class="keypad">
-            <div class="key" onclick="keypadInput('1')">1</div>
-            <div class="key" onclick="keypadInput('2')">2</div>
-            <div class="key" onclick="keypadInput('3')">3</div>
-            <div class="key" onclick="keypadInput('4')">4</div>
-            <div class="key" onclick="keypadInput('5')">5</div>
-            <div class="key" onclick="keypadInput('6')">6</div>
-            <div class="key" onclick="keypadInput('7')">7</div>
-            <div class="key" onclick="keypadInput('8')">8</div>
-            <div class="key" onclick="keypadInput('9')">9</div>
-            <div class="key clear" onclick="keypadClear()">✕</div>
-            <div class="key" onclick="keypadInput('0')">0</div>
-            <div class="key action" onclick="connectToStream()">OK</div>
-        </div>
-
-        <button class="action-btn primary" id="btnConnect" onclick="connectToStream()">🔗 Подключиться</button>
-        <button class="action-btn danger" id="btnDisconnect" onclick="disconnect()">❌ Отключиться</button>
-    </div>
-
-    <div class="status" id="statusText"></div>
-
-    <div class="video-container" id="videoContainer">
-        <video id="videoElement" autoplay playsinline></video>
-    </div>
-
-    <div class="debug-toggle" onclick="toggleDebug()">🔍 Диагностика</div>
-    <div class="debug-info" id="debugInfo"></div>
-</div>
-
-<!-- Всплывающее уведомление -->
-<div class="toast" id="toast">✓ Скопировано!</div>
-
-<script>
-    const FIXED_ROOM = 'screen-share-room-01';
-    let peer = null;
-    let localStream = null;
-    let currentCall = null;
-    let myRole = null;
-
-    const errorBox = document.getElementById('errorBox');
-    const statusText = document.getElementById('statusText');
-    const videoElement = document.getElementById('videoElement');
-    const videoContainer = document.getElementById('videoContainer');
-    const debugInfo = document.getElementById('debugInfo');
-    const streamerIdInput = document.getElementById('streamerId');
-    const toast = document.getElementById('toast');
-
-    window.addEventListener('load', () => {
-        showDebugInfo();
-        statusText.textContent = 'Выберите роль';
-    });
-
-    function showDebugInfo() {
-        const isHttps = location.protocol === 'https:' || location.hostname === 'localhost';
-        const hasMedia = !!(navigator.mediaDevices);
-        const hasDisplay = !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
-        const chromeMatch = navigator.userAgent.match(/Chrome\/(\d+)/);
-        const chromeVer = chromeMatch ? chromeMatch[1] : 'Не Chrome';
-        
-        debugInfo.innerHTML = `
-            <div>HTTPS: <span class="${isHttps ? 'ok' : 'err'}">${isHttps ? '✓' : '✗'}</span></div>
-            <div>mediaDevices: <span class="${hasMedia ? 'ok' : 'err'}">${hasMedia ? '✓' : '✗'}</span></div>
-            <div>getDisplayMedia: <span class="${hasDisplay ? 'ok' : 'err'}">${hasDisplay ? '✓' : '✗'}</span></div>
-            <div>Chrome: ${chromeVer}</div>
-            <div>UA: ${navigator.userAgent.substring(0, 40)}...</div>
-        `;
-    }
-
-    function toggleDebug() {
-        debugInfo.classList.toggle('visible');
-    }
-
-    function showError(msg) {
-        errorBox.textContent = msg;
-        errorBox.classList.add('visible');
-        setTimeout(() => errorBox.classList.remove('visible'), 8000);
-    }
-
-    function showToast(msg) {
-        toast.textContent = msg;
-        toast.classList.add('visible');
-        setTimeout(() => toast.classList.remove('visible'), 2000);
-    }
-
-    function selectRole(role) {
-        myRole = role;
-        document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('active'));
-        event.currentTarget.classList.add('active');
-
-        document.getElementById('streamerBlock').classList.add('hidden');
-        document.getElementById('viewerBlock').classList.add('hidden');
-
-        if (role === 'streamer') {
-            document.getElementById('streamerBlock').classList.remove('hidden');
-        } else {
-            document.getElementById('viewerBlock').classList.remove('hidden');
-        }
-
-        initPeer();
-    }
-
-    function initPeer() {
-        peer = new Peer(null, {
-            debug: 2
-        });
-
-        peer.on('open', (id) => {
-            if (myRole === 'streamer') {
-                document.getElementById('myIdDisplay').textContent = id;
-                document.getElementById('idBox').classList.add('visible');
-                statusText.textContent = 'ID готов к копированию';
-            } else {
-                statusText.textContent = 'Введите ID стримера';
-            }
-        });
-
-        peer.on('call', (call) => {
-            if (myRole === 'streamer') {
-                if (localStream) {
-                    call.answer(localStream);
-                } else {
-                    call.answer();
-                    statusText.textContent = 'Зритель на линии. Запустите трансляцию!';
-                }
-                statusText.textContent = 'Зритель подключен!';
-                setupCall(call);
-            }
-        });
-
-        peer.on('error', (err) => {
-            statusText.textContent = 'Ошибка: ' + err.type;
-            if (err.type === 'unavailable-id') {
-                showError('ID занят. Обновите страницу.');
-            }
-        });
-    }
-
-    // === КНОПКА КОПИРОВАНИЯ ===
-    function copyId() {
-        const idText = document.getElementById('myIdDisplay').textContent;
-        
-        if (!idText || idText === 'Загрузка...') {
-            showError('ID еще не получен. Подождите...');
-            return;
-        }
-        
-        // Современный способ копирования
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(idText).then(() => {
-                showToast('✓ ID скопирован!');
-                const copyBtn = document.querySelector('.copy-btn');
-                copyBtn.textContent = '✓ Скопировано';
-                copyBtn.classList.add('copied');
-                setTimeout(() => {
-                    copyBtn.textContent = '📋 Копировать ID';
-                    copyBtn.classList.remove('copied');
-                }, 2000);
-            }).catch(err => {
-                fallbackCopy(idText);
-            });
-        } else {
-            // Резервный способ для старых браузеров
-            fallbackCopy(idText);
-        }
-    }
-    
-    function fallbackCopy(text) {
-        // Создаем временное поле для копирования
-        const tempInput = document.createElement('input');
-        tempInput.value = text;
-        tempInput.style.position = 'fixed';
-        tempInput.style.left = '-9999px';
-        document.body.appendChild(tempInput);
-        tempInput.select();
-        try {
-            document.execCommand('copy');
-            showToast('✓ ID скопирован!');
-        } catch (err) {
-            showError('Не удалось скопировать. Выделите ID вручную.');
-        }
-        document.body.removeChild(tempInput);
-    }
-
-    // === КЛАВИАТУРА ===
-    function keypadInput(val) {
-        streamerIdInput.value += val;
-    }
-    
-    function keypadClear() {
-        streamerIdInput.value = streamerIdInput.value.slice(0, -1);
-    }
-
-    // === ЛОГИКА СТРИМЕРА ===
-    async function startStream() {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-            showError('⛔ Захват экрана не поддерживается!\n\nПопробуйте:\n• Обновить Chrome\n• Режим "Версия для ПК"\n• Firefox или Edge');
-            return;
-        }
-
-        try {
-            statusText.textContent = 'Выберите экран для трансляции...';
-            
-            localStream = await navigator.mediaDevices.getDisplayMedia({
-                video: { mediaSource: "screen", width: { ideal: 1280 }, height: { ideal: 720 } },
-                audio: false
+        // Инициализация PeerJS (используем их бесплатный облачный сервер)
+        function initPeer() {
+            // Создаем Peer с рандомным ID
+            peer = new Peer(null, {
+                debug: 2
             });
 
-            videoElement.srcObject = localStream;
-            videoContainer.classList.add('visible');
+            peer.on('open', (id) => {
+                console.log('My peer ID is: ' + id);
+                statusText.innerText = "ID подключения: " + id;
+            });
 
-            document.getElementById('btnStartStream').classList.add('hidden');
-            document.getElementById('btnStopStream').classList.add('visible');
-            statusText.textContent = '🔴 Трансляция идет';
-
-            localStream.getVideoTracks()[0].onended = () => stopStream();
-
-        } catch (err) {
-            statusText.textContent = 'Отменено';
-            console.error('Screen share error:', err);
-        }
-    }
-
-    function stopStream() {
-        if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
-            localStream = null;
-        }
-        if (currentCall) {
-            currentCall.close();
-            currentCall = null;
-        }
-        videoContainer.classList.remove('visible');
-        videoElement.srcObject = null;
-        document.getElementById('btnStartStream').classList.remove('hidden');
-        document.getElementById('btnStopStream').classList.remove('visible');
-        statusText.textContent = 'Трансляция остановлена';
-    }
-
-    // === ЛОГИКА ЗРИТЕЛЯ ===
-    function connectToStream() {
-        const streamerId = streamerIdInput.value.trim();
-        
-        if (!streamerId) {
-            showError('Введите ID стримера');
-            return;
+            peer.on('error', (err) => {
+                console.error(err);
+                alert("Ошибка соединения: " + err.type);
+                stopStream();
+            });
         }
 
-        if (!peer) {
-            showError('Соединение не инициализировано. Обновите страницу.');
-            return;
-        }
+        // --- ЛОГИКА "ПОКАЗАТЬ" ---
+        async function startSharing() {
+            try {
+                // 1. Запрашиваем захват экрана
+                localStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: { cursor: "always" },
+                    audio: false // Можно включить true, если нужно передавать звук системы
+                });
 
-        statusText.textContent = 'Подключение...';
-        
-        const call = peer.call(streamerId, null);
-        setupCall(call);
-    }
+                // 2. Переключаем интерфейс
+                showStreamInterface();
+                
+                // 3. Инициализируем соединение
+                initPeer();
 
-    function disconnect() {
-        if (currentCall) {
-            currentCall.close();
-            currentCall = null;
-        }
-        videoContainer.classList.remove('visible');
-        videoElement.srcObject = null;
-        document.getElementById('btnConnect').classList.remove('hidden');
-        document.getElementById('btnDisconnect').classList.remove('visible');
-        streamerIdInput.value = '';
-        statusText.textContent = 'Отключено';
-    }
+                // 4. Ждем входящего вызова от "Смотрящего"
+                peer.on('call', (call) => {
+                    call.answer(localStream); // Отвечаем своим потоком
+                    currentCall = call;
+                    statusText.innerText = "Трансляция идет... (ID: " + peer.id + ")";
+                    
+                    call.on('close', () => {
+                        stopStream();
+                    });
+                });
 
-    function setupCall(call) {
-        currentCall = call;
+                // Если пользователь нажмет "Остановить" в системном меню Android
+                localStream.getVideoTracks()[0].onended = () => {
+                    stopStream();
+                };
 
-        call.on('stream', (remoteStream) => {
-            videoElement.srcObject = remoteStream;
-            videoContainer.classList.add('visible');
-            statusText.textContent = '🔴 Идет трансляция';
-            
-            if (myRole === 'viewer') {
-                document.getElementById('btnConnect').classList.add('hidden');
-                document.getElementById('btnDisconnect').classList.add('visible');
+            } catch (err) {
+                console.error("Ошибка захвата экрана: " + err);
+                alert("Не удалось захватить экран. Убедитесь, что используете HTTPS.");
             }
-        });
+        }
 
-        call.on('close', () => {
-            statusText.textContent = 'Соединение разорвано';
-            disconnect();
-        });
+        // --- ЛОГИКА "СМОТРЕТЬ" ---
+        function startWatching() {
+            // 1. Запрашиваем ID у пользователя
+            const destId = prompt("Введите ID того, кто показывает экран:", "");
+            
+            if (!destId) return;
 
-        call.on('error', (err) => {
-            statusText.textContent = 'Ошибка: ' + err.type;
-            showError('Не удалось подключиться. Проверьте ID.');
-        });
-    }
-</script>
+            // 2. Инициализируем Peer
+            initPeer();
 
+            // 3. Ждем готовности Peer, затем звоним
+            peer.on('open', (id) => {
+                statusText.innerText = "Подключение к " + destId + "...";
+                
+                const call = peer.call(destId, null); // Звоним без своего потока (мы только слушаем)
+                
+                call.on('stream', (remoteStream) => {
+                    // Получили поток!
+                    showStreamInterface();
+                    videoElement.srcObject = remoteStream;
+                    statusText.innerText = "Просмотр трансляции...";
+                    currentCall = call;
+                });
+
+                call.on('close', () => {
+                    stopStream();
+                });
+                
+                call.on('error', (err) => {
+                    alert("Ошибка подключения. Проверьте ID.");
+                    stopStream();
+                });
+            });
+        }
+
+        // --- ОБЩИЕ ФУНКЦИИ ---
+
+        function showStreamInterface() {
+            menu.classList.add('hidden');
+            streamView.style.display = 'flex';
+        }
+
+        function stopStream() {
+            // Останавливаем треки (камеру/экран)
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+
+            // Закрываем соединение
+            if (currentCall) {
+                currentCall.close();
+                currentCall = null;
+            }
+            if (peer) {
+                peer.destroy();
+                peer = null;
+            }
+
+            // Сбрасываем видео
+            videoElement.srcObject = null;
+
+            // Возвращаем меню
+            streamView.style.display = 'none';
+            menu.classList.remove('hidden');
+            statusText.innerText = "";
+        }
+    </script>
 </body>
 </html>
