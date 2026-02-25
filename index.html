@@ -61,20 +61,48 @@
         }
         .role-icon { font-size: 1.3rem; display: block; margin-bottom: 4px; }
         
-        .id-display {
+        .id-box {
             background: #f0f0f0;
-            padding: 10px;
             border-radius: 8px;
-            text-align: center;
+            padding: 10px;
             margin-bottom: 15px;
-            font-family: monospace;
-            font-size: 1.2rem;
-            font-weight: bold;
-            user-select: all;
             display: none;
-            letter-spacing: 1px;
         }
-        .id-display.visible { display: block; }
+        .id-box.visible { display: block; }
+        
+        .id-display {
+            font-family: monospace;
+            font-size: 1.1rem;
+            font-weight: bold;
+            text-align: center;
+            letter-spacing: 1px;
+            word-break: break-all;
+            margin-bottom: 10px;
+            user-select: all;
+        }
+        
+        .copy-btn {
+            width: 100%;
+            padding: 10px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .copy-btn:hover { background: #218838; }
+        .copy-btn:active { background: #1e7e34; }
+        .copy-btn.copied { background: #6c757d; }
+        
+        .copy-hint {
+            text-align: center;
+            font-size: 0.75rem;
+            color: #888;
+            margin-bottom: 15px;
+        }
         
         /* Цифровая клавиатура */
         .keypad {
@@ -185,6 +213,24 @@
         .debug-info .err { color: #dc3545; }
 
         .hidden { display: none; }
+        
+        /* Уведомление о копировании */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            z-index: 1000;
+        }
+        .toast.visible { opacity: 1; }
     </style>
 </head>
 <body>
@@ -213,10 +259,12 @@
 
     <!-- Блок для стримера -->
     <div id="streamerBlock" class="hidden">
-        <div class="id-display" id="myIdDisplay"></div>
-        <p style="text-align:center; font-size:0.8rem; color:#888; margin-bottom:15px;">
-            👆 Скопируйте ID и отправьте зрителю
-        </p>
+        <div class="id-box" id="idBox">
+            <div class="id-display" id="myIdDisplay">Загрузка...</div>
+            <button class="copy-btn" onclick="copyId()">📋 Копировать ID</button>
+        </div>
+        <p class="copy-hint">Отправьте этот ID зрителю в мессенджер</p>
+        
         <button class="action-btn primary" id="btnStartStream" onclick="startStream()">🎬 Начать трансляцию</button>
         <button class="action-btn danger" id="btnStopStream" onclick="stopStream()">⏹ Остановить</button>
     </div>
@@ -254,6 +302,9 @@
     <div class="debug-info" id="debugInfo"></div>
 </div>
 
+<!-- Всплывающее уведомление -->
+<div class="toast" id="toast">✓ Скопировано!</div>
+
 <script>
     const FIXED_ROOM = 'screen-share-room-01';
     let peer = null;
@@ -267,6 +318,7 @@
     const videoContainer = document.getElementById('videoContainer');
     const debugInfo = document.getElementById('debugInfo');
     const streamerIdInput = document.getElementById('streamerId');
+    const toast = document.getElementById('toast');
 
     window.addEventListener('load', () => {
         showDebugInfo();
@@ -299,6 +351,12 @@
         setTimeout(() => errorBox.classList.remove('visible'), 8000);
     }
 
+    function showToast(msg) {
+        toast.textContent = msg;
+        toast.classList.add('visible');
+        setTimeout(() => toast.classList.remove('visible'), 2000);
+    }
+
     function selectRole(role) {
         myRole = role;
         document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('active'));
@@ -317,7 +375,6 @@
     }
 
     function initPeer() {
-        // Создаем peer с фиксированным префиксом для стабильности
         peer = new Peer(null, {
             debug: 2
         });
@@ -325,22 +382,22 @@
         peer.on('open', (id) => {
             if (myRole === 'streamer') {
                 document.getElementById('myIdDisplay').textContent = id;
-                document.getElementById('myIdDisplay').classList.add('visible');
-                statusText.textContent = 'Отправьте этот ID зрителю';
+                document.getElementById('idBox').classList.add('visible');
+                statusText.textContent = 'ID готов к копированию';
             } else {
                 statusText.textContent = 'Введите ID стримера';
             }
         });
 
         peer.on('call', (call) => {
-            if (myRole === 'streamer' && localStream) {
-                call.answer(localStream);
+            if (myRole === 'streamer') {
+                if (localStream) {
+                    call.answer(localStream);
+                } else {
+                    call.answer();
+                    statusText.textContent = 'Зритель на линии. Запустите трансляцию!';
+                }
                 statusText.textContent = 'Зритель подключен!';
-                setupCall(call);
-            } else if (myRole === 'streamer' && !localStream) {
-                // Если звонят, но трансляция еще не запущена
-                call.answer();
-                statusText.textContent = 'Зритель на линии. Запустите трансляцию!';
                 setupCall(call);
             }
         });
@@ -351,6 +408,52 @@
                 showError('ID занят. Обновите страницу.');
             }
         });
+    }
+
+    // === КНОПКА КОПИРОВАНИЯ ===
+    function copyId() {
+        const idText = document.getElementById('myIdDisplay').textContent;
+        
+        if (!idText || idText === 'Загрузка...') {
+            showError('ID еще не получен. Подождите...');
+            return;
+        }
+        
+        // Современный способ копирования
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(idText).then(() => {
+                showToast('✓ ID скопирован!');
+                const copyBtn = document.querySelector('.copy-btn');
+                copyBtn.textContent = '✓ Скопировано';
+                copyBtn.classList.add('copied');
+                setTimeout(() => {
+                    copyBtn.textContent = '📋 Копировать ID';
+                    copyBtn.classList.remove('copied');
+                }, 2000);
+            }).catch(err => {
+                fallbackCopy(idText);
+            });
+        } else {
+            // Резервный способ для старых браузеров
+            fallbackCopy(idText);
+        }
+    }
+    
+    function fallbackCopy(text) {
+        // Создаем временное поле для копирования
+        const tempInput = document.createElement('input');
+        tempInput.value = text;
+        tempInput.style.position = 'fixed';
+        tempInput.style.left = '-9999px';
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        try {
+            document.execCommand('copy');
+            showToast('✓ ID скопирован!');
+        } catch (err) {
+            showError('Не удалось скопировать. Выделите ID вручную.');
+        }
+        document.body.removeChild(tempInput);
     }
 
     // === КЛАВИАТУРА ===
@@ -364,7 +467,6 @@
 
     // === ЛОГИКА СТРИМЕРА ===
     async function startStream() {
-        // Проверка в момент нажатия
         if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
             showError('⛔ Захват экрана не поддерживается!\n\nПопробуйте:\n• Обновить Chrome\n• Режим "Версия для ПК"\n• Firefox или Edge');
             return;
