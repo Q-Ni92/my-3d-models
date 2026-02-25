@@ -3,157 +3,243 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Трансляция экрана</title>
-    <!-- Подключаем библиотеку PeerJS -->
-    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <title>📱 Показать экран смартфона</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; text-align: center; background: #f0f0f0; }
-        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        input { padding: 10px; width: 70%; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; }
-        button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
-        button:disabled { background: #ccc; }
-        button.stop { background: #dc3545; display: none; }
-        video { width: 100%; margin-top: 20px; border-radius: 5px; background: #000; display: none; }
-        .id-box { background: #e9ecef; padding: 10px; margin: 10px 0; border-radius: 5px; font-weight: bold; user-select: all; }
-        .status { margin-top: 10px; color: #666; font-size: 0.9em; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 900px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 { 
+            text-align: center; 
+            color: #333; 
+            margin-bottom: 10px;
+            font-size: 1.8rem;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 25px;
+            font-size: 0.95rem;
+        }
+        .room-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .room-controls input {
+            flex: 1;
+            min-width: 200px;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+        .room-controls input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .room-controls button {
+            padding: 12px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+        .room-controls button:hover { background: #5568d3; }
+        .room-controls button.secondary {
+            background: #6c757d;
+        }
+        .room-controls button.secondary:hover { background: #5a6268; }
+        
+        .info-box {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 12px 15px;
+            margin-bottom: 20px;
+            border-radius: 0 10px 10px 0;
+            font-size: 0.9rem;
+            color: #555;
+        }
+        .info-box code {
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+
+        .jitsi-container {
+            width: 100%;
+            height: 500px;
+            border-radius: 15px;
+            overflow: hidden;
+            background: #000;
+            display: none;
+        }
+        .jitsi-container.active { display: block; }
+        
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: 0;
+        }
+
+        .leave-btn {
+            display: none;
+            width: 100%;
+            margin-top: 15px;
+            padding: 12px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        .leave-btn.active { display: block; }
+        .leave-btn:hover { background: #c82333; }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        .feature {
+            text-align: center;
+            font-size: 0.8rem;
+            color: #666;
+        }
+        .feature-icon { font-size: 1.5rem; margin-bottom: 5px; }
+
+        @media (max-width: 600px) {
+            .container { padding: 20px; }
+            h1 { font-size: 1.4rem; }
+            .jitsi-container { height: 400px; }
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>📱 Трансляция экрана</h2>
-    
-    <div class="id-box">
-        Ваш ID для подключения: <span id="my-id">Загрузка...</span>
+    <h1>📱 Показать экран смартфона</h1>
+    <p class="subtitle">Без установки приложений. Работает на iOS, Android и ПК.</p>
+
+    <!-- Управление комнатой -->
+    <div class="room-controls">
+        <input type="text" id="roomInput" placeholder="Название комнаты (например: support-123)" autocomplete="off">
+        <button onclick="generateRoom()">🎲 Сгенерировать</button>
+        <button onclick="joinRoom()">▶️ Войти</button>
     </div>
 
-    <input type="text" id="remote-id" placeholder="Введите ID собеседника">
-    <br>
-    
-    <button id="btn-start" onclick="startScreenShare()">Показать экран</button>
-    <button id="btn-stop" class="stop" onclick="stopScreenShare()">Остановить</button>
+    <div class="info-box">
+        <strong>Как использовать:</strong> 
+        1) Придумайте код комнаты (или сгенерируйте) → 
+        2) Отправьте код собеседнику → 
+        3) Оба заходите по одному коду → 
+        4) Нажмите <code>🖥️ Поделиться экраном</code> в конференции
+    </div>
 
-    <div class="status" id="status">Ожидание...</div>
-    
-    <!-- Видео элемент для отображения того, что вы транслируете (превью) -->
-    <video id="local-video" autoplay muted playsinline></video>
+    <!-- Контейнер для Jitsi -->
+    <div id="jitsiContainer" class="jitsi-container">
+        <iframe id="jitsiFrame" allow="camera; microphone; display-capture; fullscreen"></iframe>
+    </div>
+
+    <button id="leaveBtn" class="leave-btn" onclick="leaveRoom()">🚪 Покинуть комнату</button>
+
+    <!-- Иконки возможностей -->
+    <div class="features">
+        <div class="feature"><div class="feature-icon">🍏</div>iOS</div>
+        <div class="feature"><div class="feature-icon">🤖</div>Android</div>
+        <div class="feature"><div class="feature-icon">💻</div>Windows/Mac</div>
+        <div class="feature"><div class="feature-icon">🔒</div>Шифрование</div>
+        <div class="feature"><div class="feature-icon">🎤</div>Звук</div>
+        <div class="feature"><div class="feature-icon">💬</div>Чат</div>
+    </div>
 </div>
 
 <script>
-    let peer = null;
-    let localStream = null;
-    let currentCall = null;
-    const myIdDisplay = document.getElementById('my-id');
-    const statusDisplay = document.getElementById('status');
-    const localVideo = document.getElementById('local-video');
-    const btnStart = document.getElementById('btn-start');
-    const btnStop = document.getElementById('btn-stop');
+    const JITSI_DOMAIN = 'meet.jit.si';
+    let currentRoom = null;
 
-    // 1. Инициализация PeerJS (получаем свой уникальный ID)
-    function initPeer() {
-        // Создаем соединение с публичным сервером PeerJS
-        peer = new Peer(); 
-
-        peer.on('open', (id) => {
-            myIdDisplay.innerText = id;
-            statusDisplay.innerText = "Готов к работе. Скопируйте свой ID и отправьте собеседнику, или введите его ID выше.";
-        });
-
-        // Обработка входящего звонка (если вам звонят)
-        peer.on('call', (call) => {
-            statusDisplay.innerText = "Входящее соединение...";
-            // Отвечаем на звонок своим потоком (если он уже есть) или просто принимаем
-            if (localStream) {
-                call.answer(localStream); 
-            } else {
-                // Если потока еще нет, отвечаем пустым потоком или просим начать трансляцию
-                // Для простоты здесь мы просто принимаем звонок, но видео пойдет, когда нажмут кнопку
-                 call.answer(); 
-            }
-            setupCall(call);
-        });
-
-        peer.on('error', (err) => {
-            statusDisplay.innerText = "Ошибка: " + err.type;
-            console.error(err);
-        });
+    // Генерация случайного кода комнаты
+    function generateRoom() {
+        const code = 'screen-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+        document.getElementById('roomInput').value = code;
+        document.getElementById('roomInput').focus();
     }
 
-    // 2. Функция захвата экрана и начала трансляции
-    async function startScreenShare() {
-        const remoteId = document.getElementById('remote-id').value.trim();
-
-        try {
-            // Запрашиваем доступ к экрану (работает в Chrome Android и Desktop)
-            localStream = await navigator.mediaDevices.getDisplayMedia({
-                video: { mediaSource: "screen" },
-                audio: false // Можно включить true, если нужно передавать звук системы
-            });
-
-            // Показываем превью у себя
-            localVideo.srcObject = localStream;
-            localVideo.style.display = 'block';
-            
-            btnStart.style.display = 'none';
-            btnStop.style.display = 'inline-block';
-            statusDisplay.innerText = "Экран захвачен.";
-
-            // Если введен ID собеседника -> звоним ему
-            if (remoteId) {
-                const call = peer.call(remoteId, localStream);
-                setupCall(call);
-            } else {
-                statusDisplay.innerText = "Трансляция идет. Ждем подключения собеседника по вашему ID...";
-            }
-
-            // Если пользователь нажмет "Остановить" в системном диалоге браузера
-            localStream.getVideoTracks()[0].onended = function () {
-                stopScreenShare();
-            };
-
-        } catch (err) {
-            console.error("Ошибка захвата экрана: ", err);
-            statusDisplay.innerText = "Ошибка: " + err.message;
-        }
-    }
-
-    // 3. Настройка соединения (отправка и прием данных)
-    function setupCall(call) {
-        currentCall = call;
-        statusDisplay.innerText = "Соединение установлено!";
+    // Вход в комнату
+    function joinRoom() {
+        let room = document.getElementById('roomInput').value.trim();
         
-        // Если мы принимаем звонок, нам нужно отправить свой поток, когда он появится
-        call.on('stream', (remoteStream) => {
-            // Здесь можно добавить логику, если вы хотите видеть экран собеседника
-            // Но в данном случае мы только отправляем свой
-        });
-
-        call.on('close', () => {
-            statusDisplay.innerText = "Собеседник отключился.";
-            stopScreenShare();
-        });
-    }
-
-    // 4. Остановка трансляции
-    function stopScreenShare() {
-        if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
-            localStream = null;
+        if (!room) {
+            alert('Введите название комнаты');
+            return;
         }
-        if (currentCall) {
-            currentCall.close();
-            currentCall = null;
+
+        // Очищаем от лишних символов
+        room = room.replace(/[^a-zA-Z0-9\-_]/g, '');
+        if (room.length < 3) {
+            alert('Название комнаты должно быть не менее 3 символов');
+            return;
         }
+
+        currentRoom = room;
         
-        localVideo.style.display = 'none';
-        localVideo.srcObject = null;
-        btnStart.style.display = 'inline-block';
-        btnStop.style.display = 'none';
-        statusDisplay.innerText = "Трансляция остановлена.";
+        // Формируем URL с параметрами
+        const jitsiUrl = `https://${JITSI_DOMAIN}/${room}#config.startWithScreenSharing=true&config.disableDeepLinking=true&config.prejoinPageEnabled=false`;
+        
+        // Вставляем iframe
+        const iframe = document.getElementById('jitsiFrame');
+        iframe.src = jitsiUrl;
+        
+        // Показываем интерфейс конференции
+        document.getElementById('jitsiContainer').classList.add('active');
+        document.getElementById('leaveBtn').classList.add('active');
+        
+        // Скрываем поля ввода (опционально)
+        // document.querySelector('.room-controls').style.display = 'none';
     }
 
-    // Запуск при загрузке страницы
-    initPeer();
+    // Выход из комнаты
+    function leaveRoom() {
+        const iframe = document.getElementById('jitsiFrame');
+        iframe.src = ''; // Останавливаем поток
+        
+        document.getElementById('jitsiContainer').classList.remove('active');
+        document.getElementById('leaveBtn').classList.remove('active');
+        currentRoom = null;
+    }
+
+    // Поддержка Enter в поле ввода
+    document.getElementById('roomInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') joinRoom();
+    });
+
+    // Авто-генерация при загрузке (опционально)
+    // generateRoom();
 </script>
 
 </body>
