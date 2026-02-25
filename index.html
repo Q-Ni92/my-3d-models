@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📱 Показать экран смартфона</title>
+    <title>Трансляция экрана</title>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #f5f5f5;
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -17,229 +18,334 @@
         }
         .container {
             background: white;
-            border-radius: 20px;
-            padding: 30px;
-            max-width: 900px;
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 500px;
             width: 100%;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
         }
-        h1 { 
-            text-align: center; 
-            color: #333; 
-            margin-bottom: 10px;
-            font-size: 1.8rem;
-        }
-        .subtitle {
-            text-align: center;
-            color: #666;
-            margin-bottom: 25px;
-            font-size: 0.95rem;
-        }
-        .room-controls {
-            display: flex;
-            gap: 10px;
+        h1 { text-align: center; color: #333; margin-bottom: 8px; font-size: 1.5rem; }
+        .subtitle { text-align: center; color: #888; margin-bottom: 24px; font-size: 0.9rem; }
+        
+        .role-select {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
             margin-bottom: 20px;
-            flex-wrap: wrap;
         }
-        .room-controls input {
-            flex: 1;
-            min-width: 200px;
-            padding: 12px 15px;
+        .role-btn {
+            padding: 16px;
             border: 2px solid #e0e0e0;
-            border-radius: 10px;
+            border-radius: 12px;
+            background: white;
+            cursor: pointer;
             font-size: 1rem;
-            transition: border-color 0.2s;
+            transition: all 0.2s;
+            text-align: center;
         }
-        .room-controls input:focus {
-            outline: none;
+        .role-btn:hover { border-color: #667eea; }
+        .role-btn.active {
             border-color: #667eea;
-        }
-        .room-controls button {
-            padding: 12px 20px;
             background: #667eea;
             color: white;
+        }
+        .role-icon { font-size: 1.5rem; display: block; margin-bottom: 6px; }
+        
+        .id-display {
+            background: #f0f0f0;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 16px;
+            font-family: monospace;
+            font-size: 1.1rem;
+            user-select: all;
+            display: none;
+        }
+        .id-display.visible { display: block; }
+        
+        .input-group { margin-bottom: 16px; display: none; }
+        .input-group.visible { display: block; }
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            text-align: center;
+        }
+        .input-group input:focus { outline: none; border-color: #667eea; }
+        
+        .action-btn {
+            width: 100%;
+            padding: 14px;
             border: none;
-            border-radius: 10px;
+            border-radius: 8px;
             font-size: 1rem;
             cursor: pointer;
             transition: background 0.2s;
-            white-space: nowrap;
         }
-        .room-controls button:hover { background: #5568d3; }
-        .room-controls button.secondary {
-            background: #6c757d;
-        }
-        .room-controls button.secondary:hover { background: #5a6268; }
+        .action-btn.primary { background: #667eea; color: white; }
+        .action-btn.primary:hover { background: #5568d3; }
+        .action-btn.danger { background: #dc3545; color: white; display: none; }
+        .action-btn.danger.visible { display: block; }
+        .action-btn:disabled { background: #ccc; cursor: not-allowed; }
         
-        .info-box {
-            background: #f8f9fa;
-            border-left: 4px solid #667eea;
-            padding: 12px 15px;
-            margin-bottom: 20px;
-            border-radius: 0 10px 10px 0;
+        .status {
+            text-align: center;
+            margin-top: 16px;
+            color: #666;
             font-size: 0.9rem;
-            color: #555;
+            min-height: 20px;
         }
-        .info-box code {
-            background: #e9ecef;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-family: monospace;
-        }
-
-        .jitsi-container {
-            width: 100%;
-            height: 500px;
-            border-radius: 15px;
+        
+        .video-container {
+            margin-top: 20px;
+            border-radius: 12px;
             overflow: hidden;
             background: #000;
             display: none;
+            aspect-ratio: 16/9;
         }
-        .jitsi-container.active { display: block; }
+        .video-container.visible { display: block; }
+        video { width: 100%; height: 100%; object-fit: contain; }
         
-        iframe {
-            width: 100%;
-            height: 100%;
-            border: 0;
-        }
-
-        .leave-btn {
-            display: none;
-            width: 100%;
-            margin-top: 15px;
+        .error-box {
+            background: #ffe6e6;
+            color: #dc3545;
             padding: 12px;
-            background: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 1rem;
-            cursor: pointer;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: none;
+            font-size: 0.9rem;
         }
-        .leave-btn.active { display: block; }
-        .leave-btn:hover { background: #c82333; }
+        .error-box.visible { display: block; }
 
-        .features {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 10px;
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid #eee;
-        }
-        .feature {
+        .copy-hint {
             text-align: center;
             font-size: 0.8rem;
-            color: #666;
-        }
-        .feature-icon { font-size: 1.5rem; margin-bottom: 5px; }
-
-        @media (max-width: 600px) {
-            .container { padding: 20px; }
-            h1 { font-size: 1.4rem; }
-            .jitsi-container { height: 400px; }
+            color: #888;
+            margin-top: 8px;
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>📱 Показать экран смартфона</h1>
-    <p class="subtitle">Без установки приложений. Работает на iOS, Android и ПК.</p>
+    <h1>📱 Трансляция экрана</h1>
+    <p class="subtitle">Android → ПК</p>
 
-    <!-- Управление комнатой -->
-    <div class="room-controls">
-        <input type="text" id="roomInput" placeholder="Название комнаты (например: support-123)" autocomplete="off">
-        <button onclick="generateRoom()">🎲 Сгенерировать</button>
-        <button onclick="joinRoom()">▶️ Войти</button>
+    <div id="errorBox" class="error-box"></div>
+
+    <!-- Выбор роли -->
+    <div class="role-select" id="roleSelect">
+        <div class="role-btn" onclick="selectRole('streamer')">
+            <span class="role-icon">📱</span>
+            Телефон<br>(Раздать)
+        </div>
+        <div class="role-btn" onclick="selectRole('viewer')">
+            <span class="role-icon">💻</span>
+            Компьютер<br>(Смотреть)
+        </div>
     </div>
 
-    <div class="info-box">
-        <strong>Как использовать:</strong> 
-        1) Придумайте код комнаты (или сгенерируйте) → 
-        2) Отправьте код собеседнику → 
-        3) Оба заходите по одному коду → 
-        4) Нажмите <code>🖥️ Поделиться экраном</code> в конференции
+    <!-- Блок для стримера -->
+    <div id="streamerBlock" style="display: none;">
+        <div class="id-display" id="myIdDisplay"></div>
+        <p class="copy-hint">👆 Скопируйте этот код и отправьте на ПК</p>
+        <button class="action-btn primary" id="btnStartStream" onclick="startStream()">🎬 Начать трансляцию</button>
+        <button class="action-btn danger" id="btnStopStream" onclick="stopStream()">⏹ Остановить</button>
     </div>
 
-    <!-- Контейнер для Jitsi -->
-    <div id="jitsiContainer" class="jitsi-container">
-        <iframe id="jitsiFrame" allow="camera; microphone; display-capture; fullscreen"></iframe>
+    <!-- Блок для зрителя -->
+    <div id="viewerBlock" style="display: none;">
+        <div class="input-group visible" id="connectInput">
+            <input type="text" id="streamerId" placeholder="Введите код с телефона">
+        </div>
+        <button class="action-btn primary" id="btnConnect" onclick="connectToStream()">🔗 Подключиться</button>
+        <button class="action-btn danger" id="btnDisconnect" onclick="disconnect()">❌ Отключиться</button>
     </div>
 
-    <button id="leaveBtn" class="leave-btn" onclick="leaveRoom()">🚪 Покинуть комнату</button>
+    <div class="status" id="statusText"></div>
 
-    <!-- Иконки возможностей -->
-    <div class="features">
-        <div class="feature"><div class="feature-icon">🍏</div>iOS</div>
-        <div class="feature"><div class="feature-icon">🤖</div>Android</div>
-        <div class="feature"><div class="feature-icon">💻</div>Windows/Mac</div>
-        <div class="feature"><div class="feature-icon">🔒</div>Шифрование</div>
-        <div class="feature"><div class="feature-icon">🎤</div>Звук</div>
-        <div class="feature"><div class="feature-icon">💬</div>Чат</div>
+    <div class="video-container" id="videoContainer">
+        <video id="videoElement" autoplay playsinline></video>
     </div>
 </div>
 
 <script>
-    const JITSI_DOMAIN = 'meet.jit.si';
-    let currentRoom = null;
+    let peer = null;
+    let localStream = null;
+    let currentCall = null;
+    let myRole = null;
 
-    // Генерация случайного кода комнаты
-    function generateRoom() {
-        const code = 'screen-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-        document.getElementById('roomInput').value = code;
-        document.getElementById('roomInput').focus();
-    }
+    const errorBox = document.getElementById('errorBox');
+    const statusText = document.getElementById('statusText');
+    const videoElement = document.getElementById('videoElement');
+    const videoContainer = document.getElementById('videoContainer');
 
-    // Вход в комнату
-    function joinRoom() {
-        let room = document.getElementById('roomInput').value.trim();
+    // Проверка браузера при загрузке
+    window.addEventListener('load', () => {
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const isAndroid = /Android/.test(navigator.userAgent);
         
-        if (!room) {
-            alert('Введите название комнаты');
+        if (isIOS) {
+            showError('⛔ На iPhone трансляция экрана через сайт не работает. Используйте Android или ПК.');
+            return;
+        }
+        
+        if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+            showError('⛔ Требуется HTTPS. Откройте сайт через защищенное соединение.');
             return;
         }
 
-        // Очищаем от лишних символов
-        room = room.replace(/[^a-zA-Z0-9\-_]/g, '');
-        if (room.length < 3) {
-            alert('Название комнаты должно быть не менее 3 символов');
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+            showError('⛔ Ваш браузер не поддерживает захват экрана. Используйте Chrome.');
             return;
         }
 
-        currentRoom = room;
-        
-        // Формируем URL с параметрами
-        const jitsiUrl = `https://${JITSI_DOMAIN}/${room}#config.startWithScreenSharing=true&config.disableDeepLinking=true&config.prejoinPageEnabled=false`;
-        
-        // Вставляем iframe
-        const iframe = document.getElementById('jitsiFrame');
-        iframe.src = jitsiUrl;
-        
-        // Показываем интерфейс конференции
-        document.getElementById('jitsiContainer').classList.add('active');
-        document.getElementById('leaveBtn').classList.add('active');
-        
-        // Скрываем поля ввода (опционально)
-        // document.querySelector('.room-controls').style.display = 'none';
-    }
-
-    // Выход из комнаты
-    function leaveRoom() {
-        const iframe = document.getElementById('jitsiFrame');
-        iframe.src = ''; // Останавливаем поток
-        
-        document.getElementById('jitsiContainer').classList.remove('active');
-        document.getElementById('leaveBtn').classList.remove('active');
-        currentRoom = null;
-    }
-
-    // Поддержка Enter в поле ввода
-    document.getElementById('roomInput').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') joinRoom();
+        statusText.textContent = 'Выберите роль выше';
     });
 
-    // Авто-генерация при загрузке (опционально)
-    // generateRoom();
+    function showError(msg) {
+        errorBox.textContent = msg;
+        errorBox.classList.add('visible');
+        document.getElementById('roleSelect').style.display = 'none';
+    }
+
+    function selectRole(role) {
+        myRole = role;
+        document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('active'));
+        event.currentTarget.classList.add('active');
+
+        document.getElementById('streamerBlock').style.display = role === 'streamer' ? 'block' : 'none';
+        document.getElementById('viewerBlock').style.display = role === 'viewer' ? 'block' : 'none';
+
+        initPeer();
+    }
+
+    function initPeer() {
+        peer = new Peer();
+
+        peer.on('open', (id) => {
+            if (myRole === 'streamer') {
+                document.getElementById('myIdDisplay').textContent = id;
+                document.getElementById('myIdDisplay').classList.add('visible');
+                statusText.textContent = 'Ждем подключения зрителя...';
+            } else {
+                statusText.textContent = 'Введите код с телефона и нажмите "Подключиться"';
+            }
+        });
+
+        // Стример принимает входящий звонок
+        peer.on('call', (call) => {
+            if (myRole === 'streamer' && localStream) {
+                call.answer(localStream);
+                statusText.textContent = 'Зритель подключен!';
+                setupCall(call);
+            }
+        });
+
+        peer.on('error', (err) => {
+            statusText.textContent = 'Ошибка: ' + err.type;
+        });
+    }
+
+    // === ЛОГИКА СТРИМЕРА ===
+    async function startStream() {
+        try {
+            statusText.textContent = 'Запрос доступа к экрану...';
+            
+            localStream = await navigator.mediaDevices.getDisplayMedia({
+                video: { mediaSource: "screen" },
+                audio: false
+            });
+
+            // Превью у себя (опционально, можно скрыть)
+            videoElement.srcObject = localStream;
+            videoContainer.classList.add('visible');
+
+            document.getElementById('btnStartStream').style.display = 'none';
+            document.getElementById('btnStopStream').classList.add('visible');
+            statusText.textContent = 'Трансляция идет. Ждем зрителя...';
+
+            // Если пользователь нажмет "Стоп" в системном диалоге
+            localStream.getVideoTracks()[0].onended = () => stopStream();
+
+        } catch (err) {
+            statusText.textContent = 'Ошибка: ' + err.message;
+        }
+    }
+
+    function stopStream() {
+        if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+            localStream = null;
+        }
+        if (currentCall) {
+            currentCall.close();
+            currentCall = null;
+        }
+        videoContainer.classList.remove('visible');
+        videoElement.srcObject = null;
+        document.getElementById('btnStartStream').style.display = 'block';
+        document.getElementById('btnStopStream').classList.remove('visible');
+        statusText.textContent = 'Трансляция остановлена';
+    }
+
+    // === ЛОГИКА ЗРИТЕЛЯ ===
+    function connectToStream() {
+        const streamerId = document.getElementById('streamerId').value.trim();
+        
+        if (!streamerId) {
+            statusText.textContent = 'Введите код комнаты!';
+            return;
+        }
+
+        statusText.textContent = 'Подключение...';
+        
+        // Звоним стримеру (отправляем null, так как мы только смотрим)
+        const call = peer.call(streamerId, null);
+        setupCall(call);
+    }
+
+    function disconnect() {
+        if (currentCall) {
+            currentCall.close();
+            currentCall = null;
+        }
+        videoContainer.classList.remove('visible');
+        videoElement.srcObject = null;
+        document.getElementById('btnConnect').style.display = 'block';
+        document.getElementById('btnDisconnect').classList.remove('visible');
+        statusText.textContent = 'Отключено';
+    }
+
+    // === ОБЩАЯ ЛОГИКА ВЫЗОВА ===
+    function setupCall(call) {
+        currentCall = call;
+
+        call.on('stream', (remoteStream) => {
+            videoElement.srcObject = remoteStream;
+            videoContainer.classList.add('visible');
+            statusText.textContent = '🔴 Идет трансляция';
+            
+            if (myRole === 'viewer') {
+                document.getElementById('btnConnect').style.display = 'none';
+                document.getElementById('btnDisconnect').classList.add('visible');
+                document.getElementById('connectInput').classList.remove('visible');
+            }
+        });
+
+        call.on('close', () => {
+            statusText.textContent = 'Соединение разорвано';
+            disconnect();
+        });
+
+        call.on('error', (err) => {
+            statusText.textContent = 'Ошибка соединения: ' + err.type;
+        });
+    }
 </script>
 
 </body>
