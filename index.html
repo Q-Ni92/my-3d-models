@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Трансляция экрана</title>
+    <!-- Подключаем библиотеку PeerJS -->
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; text-align: center; background: #f0f0f0; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        input { padding: 10px; width: 70%; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        button:disabled { background: #ccc; }
+        button.stop { background: #dc3545; display: none; }
+        video { width: 100%; margin-top: 20px; border-radius: 5px; background: #000; display: none; }
+        .id-box { background: #e9ecef; padding: 10px; margin: 10px 0; border-radius: 5px; font-weight: bold; user-select: all; }
+        .status { margin-top: 10px; color: #666; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>📱 Трансляция экрана</h2>
+    
+    <div class="id-box">
+        Ваш ID для подключения: <span id="my-id">Загрузка...</span>
+    </div>
+
+    <input type="text" id="remote-id" placeholder="Введите ID собеседника">
+    <br>
+    
+    <button id="btn-start" onclick="startScreenShare()">Показать экран</button>
+    <button id="btn-stop" class="stop" onclick="stopScreenShare()">Остановить</button>
+
+    <div class="status" id="status">Ожидание...</div>
+    
+    <!-- Видео элемент для отображения того, что вы транслируете (превью) -->
+    <video id="local-video" autoplay muted playsinline></video>
+</div>
+
+<script>
+    let peer = null;
+    let localStream = null;
+    let currentCall = null;
+    const myIdDisplay = document.getElementById('my-id');
+    const statusDisplay = document.getElementById('status');
+    const localVideo = document.getElementById('local-video');
+    const btnStart = document.getElementById('btn-start');
+    const btnStop = document.getElementById('btn-stop');
+
+    // 1. Инициализация PeerJS (получаем свой уникальный ID)
+    function initPeer() {
+        // Создаем соединение с публичным сервером PeerJS
+        peer = new Peer(); 
+
+        peer.on('open', (id) => {
+            myIdDisplay.innerText = id;
+            statusDisplay.innerText = "Готов к работе. Скопируйте свой ID и отправьте собеседнику, или введите его ID выше.";
+        });
+
+        // Обработка входящего звонка (если вам звонят)
+        peer.on('call', (call) => {
+            statusDisplay.innerText = "Входящее соединение...";
+            // Отвечаем на звонок своим потоком (если он уже есть) или просто принимаем
+            if (localStream) {
+                call.answer(localStream); 
+            } else {
+                // Если потока еще нет, отвечаем пустым потоком или просим начать трансляцию
+                // Для простоты здесь мы просто принимаем звонок, но видео пойдет, когда нажмут кнопку
+                 call.answer(); 
+            }
+            setupCall(call);
+        });
+
+        peer.on('error', (err) => {
+            statusDisplay.innerText = "Ошибка: " + err.type;
+            console.error(err);
+        });
+    }
+
+    // 2. Функция захвата экрана и начала трансляции
+    async function startScreenShare() {
+        const remoteId = document.getElementById('remote-id').value.trim();
+
+        try {
+            // Запрашиваем доступ к экрану (работает в Chrome Android и Desktop)
+            localStream = await navigator.mediaDevices.getDisplayMedia({
+                video: { mediaSource: "screen" },
+                audio: false // Можно включить true, если нужно передавать звук системы
+            });
+
+            // Показываем превью у себя
+            localVideo.srcObject = localStream;
+            localVideo.style.display = 'block';
+            
+            btnStart.style.display = 'none';
+            btnStop.style.display = 'inline-block';
+            statusDisplay.innerText = "Экран захвачен.";
+
+            // Если введен ID собеседника -> звоним ему
+            if (remoteId) {
+                const call = peer.call(remoteId, localStream);
+                setupCall(call);
+            } else {
+                statusDisplay.innerText = "Трансляция идет. Ждем подключения собеседника по вашему ID...";
+            }
+
+            // Если пользователь нажмет "Остановить" в системном диалоге браузера
+            localStream.getVideoTracks()[0].onended = function () {
+                stopScreenShare();
+            };
+
+        } catch (err) {
+            console.error("Ошибка захвата экрана: ", err);
+            statusDisplay.innerText = "Ошибка: " + err.message;
+        }
+    }
+
+    // 3. Настройка соединения (отправка и прием данных)
+    function setupCall(call) {
+        currentCall = call;
+        statusDisplay.innerText = "Соединение установлено!";
+        
+        // Если мы принимаем звонок, нам нужно отправить свой поток, когда он появится
+        call.on('stream', (remoteStream) => {
+            // Здесь можно добавить логику, если вы хотите видеть экран собеседника
+            // Но в данном случае мы только отправляем свой
+        });
+
+        call.on('close', () => {
+            statusDisplay.innerText = "Собеседник отключился.";
+            stopScreenShare();
+        });
+    }
+
+    // 4. Остановка трансляции
+    function stopScreenShare() {
+        if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+            localStream = null;
+        }
+        if (currentCall) {
+            currentCall.close();
+            currentCall = null;
+        }
+        
+        localVideo.style.display = 'none';
+        localVideo.srcObject = null;
+        btnStart.style.display = 'inline-block';
+        btnStop.style.display = 'none';
+        statusDisplay.innerText = "Трансляция остановлена.";
+    }
+
+    // Запуск при загрузке страницы
+    initPeer();
+</script>
+
+</body>
+</html>
